@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login – Question Generator</title>
+  <!-- Firebase App, Auth & Firestore -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <style>
+    body { display:flex; justify-content:center; align-items:center; height:100vh; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:#f5f5f5; }
+    .login-container { background:white; padding:40px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1); text-align:center; width: 320px; }
+    .btn-google { background:#4285F4; color:#fff; padding:12px 24px; border:none; border-radius:4px; cursor:pointer; font-size:16px; width:100%; }
+    .btn-google:hover { background:#357ae8; }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <h2>Entrar no Question Generator</h2>
+    <button id="btnGoogle" class="btn-google">Entrar com Google</button>
+  </div>
+
+  <script>
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyDbzqfmNxZjuDbkCmjqrKGhB-rTRT6e3oY",
+      authDomain: "tutoria-firebase.firebaseapp.com",
+      projectId: "tutoria-firebase",
+      storageBucket: "tutoria-firebase.firebasestorage.app",
+      messagingSenderId: "1070606817177",
+      appId: "1:1070606817177:web:53a2624d04d669ff452508"
+    };
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // Emuladores (apenas em desenvolvimento local)
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      auth.useEmulator('http://localhost:9099/');
+      db.useEmulator('localhost', 8080);
+    }
+
+    // Redireciona se já estiver autenticado
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        window.location.replace('index.html');
+      }
+    });
+
+    // Google Sign-In e criação de perfil no Firestore
+    document.getElementById('btnGoogle').onclick = async () => {
+      try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        const result = await auth.signInWithPopup(provider);
+        const user = result.user;
+
+        console.log('[DEBUG] Usuário autenticado:', user.uid);
+
+        const userRef = db.collection('users').doc(user.uid);
+        await userRef.set({
+          uid: user.uid,
+          email: user.email,
+          nome: user.displayName || null,
+          tipo: 'aluno',
+          criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        console.log('[DEBUG] Documento criado com sucesso no Firestore');
+
+        window.location.replace('index.html');
+      } catch (error) {
+        console.error('Erro no login:', error);
+        alert('Falha ao realizar login: ' + error.message);
+      }
+    };
+  </script>
+</body>
+</html>

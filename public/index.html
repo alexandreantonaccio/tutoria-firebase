@@ -4,246 +4,113 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Question Generator</title>
+    <!-- Firebase App, Auth, Functions -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        body {
-            background-color: white;
-            color: #333;
-            line-height: 1.6;
-            padding: 20px;
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        
-        header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #eee;
-        }
-        
-        h1 {
-            font-size: 28px;
-            margin-bottom: 10px;
-            color: #2c3e50;
-        }
-        
-        .subtitle {
-            color: #7f8c8d;
-            margin-bottom: 20px;
-        }
-        
-        .card {
-            background-color: #f9f9f9;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-        
-        .input-group {
-            margin-bottom: 20px;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: #2c3e50;
-        }
-        
-        input {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 16px;
-        }
-        
-        .btn-container {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-        
-        .btn {
-            flex: 1;
-            min-width: 100px;
-            background-color: #3498db;
-            color: white;
-            border: none;
-            padding: 12px;
-            font-size: 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        
-        .btn:hover {
-            background-color: #2980b9;
-        }
-        
-        .result-container {
-            margin-top: 20px;
-            padding: 20px;
-            background-color: white;
-            border: 1px solid #eee;
-            border-radius: 4px;
-            min-height: 100px;
-        }
-        
-        .loader {
-            display: none;
-            text-align: center;
-            margin: 20px 0;
-            color: #7f8c8d;
-        }
-        
-        .questions {
-            margin-top: 20px;
-        }
-        
-        .question {
-            padding: 15px;
-            margin-bottom: 15px;
-            background-color: #f8f9fa;
-            border-left: 4px solid #3498db;
-            border-radius: 4px;
-        }
-        
-        .question-number {
-            font-weight: bold;
-            margin-bottom: 5px;
-            color: #2c3e50;
-        }
-        
-        .error {
-            color: #e74c3c;
-            padding: 10px;
-            background-color: #fdecea;
-            border-radius: 4px;
-            margin-top: 10px;
-        }
-        
-        .success {
-            color: #27ae60;
-            text-align: center;
-            padding: 10px;
-        }
-    </style>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
     <header>
         <h1>Question Generator</h1>
         <p class="subtitle">Generate questions on any topic using Gemini AI</p>
+        <div id="user-info">
+            <div id="user-name">Carregando...</div>
+            <div id="user-email"></div>
+            <button id="btnLogout">Sair</button>
+        </div>
     </header>
-    
+
     <div class="card">
         <div class="input-group">
             <label for="subject">Enter a subject:</label>
             <input type="text" id="subject" placeholder="e.g., Mathematics, History, Science..." value="Physics">
         </div>
-        
         <div class="btn-container">
             <button class="btn" onclick="callGenerateQuestions(5)">Generate 5 Questions</button>
             <button class="btn" onclick="callGenerateQuestions(10)">Generate 10 Questions</button>
             <button class="btn" onclick="callGenerateQuestions(15)">Generate 15 Questions</button>
         </div>
-        
         <div class="loader" id="loader">Generating questions... This may take a moment</div>
-        
         <div class="result-container">
-            <div id="result">
-                <p class="success">Select a button above to generate questions</p>
-            </div>
+            <div id="result"><p class="success">Select a button above to generate questions</p></div>
         </div>
     </div>
 
-<script>
-    // Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyDbzqfmNxZjuDbkCmjqrKGhB-rTRT6e3oY",
-      authDomain: "tutoria-firebase.firebaseapp.com",
-      projectId: "tutoria-firebase",
-      storageBucket: "tutoria-firebase.firebasestorage.app",
-      messagingSenderId: "1070606817177",
-      appId: "1:1070606817177:web:53a2624d04d669ff452508"
-    };
+    <script>
+        // Configuração Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDbzqfmNxZjuDbkCmjqrKGhB-rTRT6e3oY",
+            authDomain: "tutoria-firebase.firebaseapp.com",
+            projectId: "tutoria-firebase",
+            storageBucket: "tutoria-firebase.firebasestorage.app",
+            messagingSenderId: "1070606817177",
+            appId: "1:1070606817177:web:53a2624d04d669ff452508"
+        };
+        firebase.initializeApp(firebaseConfig);
 
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const functions = firebase.functions();
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const functions = firebase.functions();
 
-    // Use emulator during development
-    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-        functions.useEmulator("localhost", 5001);
-    }
-
-    // Function to generate questions
-async function callGenerateQuestions(count) {
-    const subject = document.getElementById('subject').value.trim();
-    console.log("Sent subject:", subject);
-    console.log("Sent count:", count);
-
-    if (!subject) {
-      showError('Please enter a subject');
-      return;
-    }
-
-    const loader = document.getElementById('loader');
-    const resultDiv = document.getElementById('result');
-    loader.style.display = 'block';
-    resultDiv.innerHTML = '';
-
-    try {
-      const generateQuestions = functions.httpsCallable('generateQuestions'); // ✅ sem conflito de nome
-      const result = await generateQuestions({ subject:'History'});
-
-      displayQuestions(result.data.questions); // garantir que 'questions' seja a chave retornada
-    } catch (error) {
-      console.error('Error:', error);
-      showError('Failed to generate questions. Please try again.');
-    } finally {
-      loader.style.display = 'none';
-    }
-}
-
-    // Function to display questions
-    function displayQuestions(questions) {
-        const resultDiv = document.getElementById('result');
-        
-        if (!questions || questions.length === 0) {
-            resultDiv.innerHTML = '<p class="error">No questions generated. Please try again.</p>';
-            return;
+        // Emuladores
+        if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+            auth.useEmulator('http://localhost:9099/');
+            db.useEmulator('localhost', 8080);
+            functions.useEmulator('localhost', 5001);
         }
 
-        let html = '<div class="questions">';
-        questions.forEach((q, index) => {
-            html += `
-                <div class="question">
-                    <div class="question-number">Question ${index + 1}</div>
-                    <div>${q}</div>
-                </div>
-            `;
+        // Verifica autenticação e carrega dados do usuário
+        auth.onAuthStateChanged(async user => {
+            if (!user) {
+                window.location.replace('login.html');
+                return;
+            }
+            // Busca dados no Firestore
+            const doc = await db.collection('users').doc(user.uid).get();
+            if (doc.exists) {
+                const data = doc.data();
+                document.getElementById('user-name').textContent = data.nome || user.displayName;
+                document.getElementById('user-email').textContent = data.email;
+            } else {
+                document.getElementById('user-name').textContent = user.displayName;
+                document.getElementById('user-email').textContent = user.email;
+            }
         });
-        html += '</div>';
-        resultDiv.innerHTML = html;
-    }
 
-    // Function to show error
-    function showError(message) {
-        const resultDiv = document.getElementById('result');
-        resultDiv.innerHTML = `<p class="error">${message}</p>`;
-    }
-</script>
+        // Logout
+        document.getElementById('btnLogout').addEventListener('click', () => {
+            auth.signOut().then(() => window.location.replace('login.html'));
+        });
+
+        // Função para gerar perguntas
+        async function callGenerateQuestions(count) {
+            const subject = document.getElementById('subject').value.trim();
+            if (!subject) { showError('Please enter a subject'); return; }
+            document.getElementById('loader').style.display = 'block';
+            document.getElementById('result').innerHTML = '';
+            try {
+                const generateQuestions = functions.httpsCallable('generateQuestions');
+                const res = await generateQuestions({ subject, count });
+                displayQuestions(res.data.questions);
+            } catch (e) {
+                showError('Failed to generate questions. Please try again.');
+            } finally {
+                document.getElementById('loader').style.display = 'none';
+            }
+        }
+
+        function displayQuestions(questions) {
+            if (!questions || !questions.length) return showError('No questions generated. Please try again.');
+            let html = '<div class="questions">';
+            questions.forEach((q,i) => html += `<div class="question"><div class="question-number">Question ${i+1}</div><div>${q}</div></div>`);
+            html += '</div>';
+            document.getElementById('result').innerHTML = html;
+        }
+
+        function showError(msg) {
+            document.getElementById('result').innerHTML = `<p class="error">${msg}</p>`;
+        }
+    </script>
 </body>
 </html>

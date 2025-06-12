@@ -4,18 +4,22 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 // Initialize Gemini API with your API key
 const genAI = new GoogleGenerativeAI("AIzaSyAh23yRMYYkQ5-z3gn7XhBwxuZD6pw5h5k");
 
+exports.health = functions.https.onRequest((req, res) => {
+  res.send("OK");
+});
+
 exports.generateQuestions = functions.https.onCall(async (data, context) => {
-  
-  const subject = data.subject;
+  const {subject, count} = data.data;
 
   // Log para depuração
-  console.log("Received subject:", data.subject);
+  console.log("Received subject:", count);
+  console.log("Received subject:", subject);
  
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const prompt = `
-      Generate exactly 10 questions about math.
+      Generate exactly ${count} questions about ${subject}.
       Format each question clearly and concisely.
       Each question should be on a separate line.
       Do not include any numbering or additional text.
