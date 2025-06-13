@@ -3,17 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Question Generator</title>
+    <title>Tutoria</title>
     <!-- Firebase App, Auth, Functions -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <style>
+    .questions {
+        margin-top: 20px;
+    }
+    .question {
+        background: #f4f4f4;
+        padding: 10px;
+        margin-bottom: 10px;
+        border-radius: 5px;
+        word-wrap: break-word;
+        white-space: pre-wrap;
+    }
+    .question-number {
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    .loader {
+        display: none;
+        margin-top: 10px;
+        font-style: italic;
+        color: gray;
+    }
+    .success {
+        color: green;
+    }
+    .error {
+        color: red;
+    }
+</style>
 </head>
 <body>
     <header>
-        <h1>Question Generator</h1>
-        <p class="subtitle">Generate questions on any topic using Gemini AI</p>
+        <h1>Gerador de questões</h1>
+        <p class="subtitle">gerar questões do tópico</p>
         <div id="user-info">
             <div id="user-name">Carregando...</div>
             <div id="user-email"></div>
@@ -23,17 +52,17 @@
 
     <div class="card">
         <div class="input-group">
-            <label for="subject">Enter a subject:</label>
-            <input type="text" id="subject" placeholder="e.g., Mathematics, History, Science..." value="Physics">
+            <label for="subject">Assunto:</label>
+            <input type="text" id="subject" placeholder="matematica, biologia e etc..." value="Physics">
         </div>
         <div class="btn-container">
-            <button class="btn" onclick="callGenerateQuestions(5)">Generate 5 Questions</button>
-            <button class="btn" onclick="callGenerateQuestions(10)">Generate 10 Questions</button>
-            <button class="btn" onclick="callGenerateQuestions(15)">Generate 15 Questions</button>
+            <button class="btn" onclick="callGenerateQuestions(5)">5 questões</button>
+            <button class="btn" onclick="callGenerateQuestions(10)">10 questões</button>
+            <button class="btn" onclick="callGenerateQuestions(15)">15 questões</button>
         </div>
-        <div class="loader" id="loader">Generating questions... This may take a moment</div>
+        <div class="loader" id="loader">Gerando questões</div>
         <div class="result-container">
-            <div id="result"><p class="success">Select a button above to generate questions</p></div>
+            <div id="result"><p class="success">Aperte um botão para gerar questões</p></div>
         </div>
     </div>
 
@@ -103,7 +132,7 @@
         function displayQuestions(questions) {
             if (!questions || !questions.length) return showError('No questions generated. Please try again.');
             let html = '<div class="questions">';
-            questions.forEach((q,i) => html += `<div class="question"><div class="question-number">Question ${i+1}</div><div>${q}</div></div>`);
+            questions.forEach((q,i) => html += `<div class="question"><div class="question-number">Questões</div><div>${q}</div></div>`);
             html += '</div>';
             document.getElementById('result').innerHTML = html;
         }
