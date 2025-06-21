@@ -1,7 +1,6 @@
 {
   "firestore": {
     "database": "(default)",
-    "location": "nam5",
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
@@ -17,6 +16,17 @@
         "*.local"
       ],
       "predeploy": []
+    },
+    {
+      "source": "codebase",
+      "codebase": "codebase",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
     }
   ],
   "hosting": {
@@ -25,14 +35,35 @@
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
-    ],
-    "rewrites": [
+    ]
+  },
+  "rewrites": [
       {
         "source": "**",
         "destination": "/index.html"
       }
-    ]
-  },
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "*"
+          },
+          {
+            "key": "Access-Control-Allow-Methods",
+            "value": "GET, POST, PUT, DELETE, OPTIONS"
+          },
+          {
+            "key": "Access-Control-Allow-Headers",
+            "value": "Content-Type, Authorization"
+          }
+        ]
+      }
+    ],
+  
+
   "emulators": {
     "functions": {
       "port": 5001
