@@ -1,8 +1,22 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Regra para documentos de usuário
     match /users/{userId} {
-      allow read, write: if true;  // <- permitir tudo (apenas para teste!)
+      // Leitura e criação do perfil de usuário
+      allow read, create: if request.auth != null && request.auth.uid == userId;
+      // Atualização (por exemplo, se quiser permitir mudar nome/email):
+      allow update: if request.auth != null && request.auth.uid == userId;
+
+      // Subcoleção de questões
+      match /provas/{provaId} {
+        // Somente o dono pode criar e ler suas questões
+        allow create, read: if request.auth != null && request.auth.uid == userId;
+        // Se quiser permitir atualização ou exclusão:
+        allow update, delete: if request.auth != null && request.auth.uid == userId;
+      }
     }
+    
+    // (Opcional) Se precisar de uma coleção global de materiais, etc., defina aqui
   }
 }

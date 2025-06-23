@@ -1,0 +1,47 @@
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #1C2833 /* Azul mais escuro/arroxeado como na imagem */
+}
+
+.login-container {
+    background: #385066; /* Azul mais escuro para o container */
+    padding: 40px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    text-align: center;
+    width: 320px;
+    color: white; /* Texto branco como na imagem */
+}
+
+.btn-google {
+    background: #F39C12; /* Amarelo vibrante como nos botões da imagem */
+    color: #1a0d6b; /* Azul escuro para o texto do botão */
+    padding: 12px 24px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    width: 100%;
+    font-weight: bold; /* Texto em negrito como na imagem */
+    margin-top: 20px; /* Espaçamento como na imagem */
+}
+
+.btn-google:hover {
+    background: #ffd700; /* Amarelo mais escuro no hover */
+}
+
+h1, h2 {
+    color: white; /* Títulos em branco como na imagem */
+    margin-bottom: 20px;
+}
+
+a {
+    color: #ffee00; /* Links em amarelo como na imagem */
+    text-decoration: none;
+    display: block;
+    margin-top: 15px;
+}

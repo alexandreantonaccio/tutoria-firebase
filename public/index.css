@@ -1,0 +1,64 @@
+body { 
+    font-family: Arial,sans-serif; 
+    margin: 20px; 
+    background-color : #2e4153;
+    color: white;
+}
+
+.error { 
+    color: red; 
+    background: #ffe6e6; 
+    padding: 10px; 
+    margin: 10px 0; 
+}
+.success { 
+    color: green; 
+    background: #e6ffe6; 
+    padding: 10px; 
+    margin: 10px 0; 
+}
+.question { 
+    border: 5px solid #3a546b; 
+    background-color: #2e4153;
+    padding: 15px; 
+    margin: 10px 0; }
+.prova-item { 
+    border: 1px solid #344a5f; 
+    padding: 10px; 
+    margin: 5px 0; }
+button { 
+    margin: 5px; 
+    padding: 8px 12px; }
+input[type="text"] { 
+    width: 300px; 
+    padding: 8px; 
+    margin: 5px; }
+.tab-content { 
+    display: none; 
+}
+.tab-content.active { 
+    display: block; 
+}
+.question.correct { 
+    border-color: green; 
+    background: #2e4153; 
+}
+.question.incorrect { 
+    border-color: red; 
+    background: #2e4153; 
+}
+.user-answer { 
+    font-weight: bold; 
+    margin-top: 5px; 
+}
+.correct-answer { 
+    color: green; 
+    font-weight: bold; 
+}
+.results-summary { 
+    padding: 15px; 
+    margin: 20px 0; 
+    border: 1px solid #c0c0c0;
+    background: #2e4153;
+    border-radius: 5px;
+}

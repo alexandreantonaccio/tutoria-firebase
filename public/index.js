@@ -1,70 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tutoria</title>
-    <link rel="stylesheet" href="index.css" />
-    <!-- Firebase App, Auth, Functions -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-</head>
-<body>
-    <h1>TutorIA</h1>
-    
-    <div id="user-info">
-        <p><strong>Usuário:</strong> <span id="user-name">Carregando...</span></p>
-        <p><strong>Email:</strong> <span id="user-email"></span></p>
-        <button id="btnLogout">Sair</button>
-    </div>
-
-    <hr>
-
-    <!-- Navegação -->
-    <div>
-        <button onclick="showTab('gerar')" id="tab-gerar-btn">Gerar Questões</button>
-        <button onclick="showTab('minhas-provas')" id="tab-provas-btn">Minhas Provas</button>
-    </div>
-
-    <hr>
-
-    <!-- Aba: Gerar Questões -->
-    <div id="tab-gerar" class="tab-content active">
-        <h2>Gerar Prova</h2>
-        
-        <div>
-            <label>Assunto:</label><br>
-            <input type="text" id="subject" placeholder="Ex: Matemática, Física, Biologia..." value="Física">
-        </div>
-        
-        <div>
-            <button onclick="callGenerateQuestions(5)">5 Questões</button>
-            <button onclick="callGenerateQuestions(10)">10 Questões</button>
-            <button onclick="callGenerateQuestions(15)">15 Questões</button>
-        </div>
-        
-        <div id="loader" class="hidden">🔄 Gerando questões... Aguarde alguns segundos.</div>
-        
-        <div id="result">
-            <p class="success">👆 Selecione um botão acima para gerar questões</p>
-        </div>
-    </div>
-
-    <!-- Aba: Minhas Provas -->
-    <div id="tab-minhas-provas" class="tab-content">
-        <h2>Minhas Provas Salvas</h2>
-        
-        <div id="loader-provas" class="hidden">🔄 Carregando provas...</div>
-        
-        <div id="provas-list">
-            <p>Carregando suas provas...</p>
-        </div>
-    </div>
-
-    <script>
-        // Configuração Firebase
+       // Configuração Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyDbzqfmNxZjuDbkCmjqrKGhB-rTRT6e3oY",
             authDomain: "tutoria-firebase.firebaseapp.com",
@@ -204,7 +138,6 @@
                 // Mudar para aba de gerar questões e mostrar as questões
                 showTab('gerar');
                 displayQuestions(prova.questoes);
-                showCorrectAnswers(prova.respostaUsuario);
                 
             } catch (error) {
                 console.error('Erro ao visualizar prova:', error);
@@ -286,7 +219,7 @@
             questions: questions,
             isSubmitted: false
         };
-    }
+        }
 
          async function submitTest() {
             
@@ -344,53 +277,48 @@
             }
         }
 
-        function showCorrectAnswers(respostaUsuario = []) {
-  const questions = window.currentTest.questions;
-
-  questions.forEach((question, index) => {
-    const questionElement = document.getElementById(`question-${index}`);
-    
-    // ➜ usa o array respostaUsuario, não o DOM
-    const userAnswer = respostaUsuario[index] ?? 'Não respondida';
-
-    // Marcação visual
-    if (userAnswer === question.alternativaCorreta) {
-      questionElement.classList.add('correct');
-    } else {
-      questionElement.classList.add('incorrect');
-    }
-
-    // Informações de resposta (evita duplicar se já existir)
-    if (!questionElement.querySelector('.user-answer')) {
-      const answerInfo = document.createElement('div');
-      answerInfo.className = 'user-answer';
-      answerInfo.innerHTML = `
-        <span>Sua resposta: ${userAnswer}</span>
-        <span class="correct-answer"> | Resposta correta: ${question.alternativaCorreta}</span>
-      `;
-      questionElement.appendChild(answerInfo);
-    }
-
-    // Destacar alternativa correta
-    const correctRadio = document.getElementById(`q${index}_${question.alternativaCorreta}`);
-    if (correctRadio) {
-      correctRadio.parentElement.style.color = 'green';
-      correctRadio.parentElement.style.fontWeight = 'bold';
-    }
-  });
-
-  // Esconde botão “Mostrar Gabarito”
-  document.getElementById('btnShowAnswers')?.classList.add('hidden');
-
-  // Mensagem de prova finalizada (evita duplicar)
-  if (!document.querySelector('#result .success')) {
-    const finishedMsg = document.createElement('div');
-    finishedMsg.className = 'success';
-    finishedMsg.textContent = 'Prova finalizada. As respostas foram salvas permanentemente.';
-    document.getElementById('result').prepend(finishedMsg);
-  }
-}
-
+        function showCorrectAnswers() {
+            const questions = window.currentTest.questions;
+            
+            questions.forEach((question, index) => {
+                const questionElement = document.getElementById(`question-${index}`);
+                const selected = document.querySelector(`input[name="q${index}"]:checked`);
+                const userAnswer = selected ? selected.value : 'Não respondida';
+                
+                // Adicionar marcação visual
+                if (userAnswer === question.alternativaCorreta) {
+                    questionElement.classList.add('correct');
+                } else {
+                    questionElement.classList.add('incorrect');
+                }
+                
+                // Adicionar informação de resposta
+                const answerInfo = document.createElement('div');
+                answerInfo.className = 'user-answer';
+                answerInfo.innerHTML = `
+                    <span>Sua resposta: ${userAnswer}</span>
+                    <span class="correct-answer"> | Resposta correta: ${question.alternativaCorreta}</span>
+                `;
+                
+                questionElement.appendChild(answerInfo);
+                
+                // Destacar resposta correta
+                const correctRadio = document.getElementById(`q${index}_${question.alternativaCorreta}`);
+                if (correctRadio) {
+                    correctRadio.parentElement.style.color = 'green';
+                    correctRadio.parentElement.style.fontWeight = 'bold';
+                }
+            });
+            
+            // Esconder botão após mostrar respostas
+            ddocument.getElementById('btnShowAnswers').classList.add('hidden');
+        
+            // Adicionar mensagem de prova finalizada
+            const finishedMsg = document.createElement('div');
+            finishedMsg.className = 'success';
+            finishedMsg.textContent = 'Prova finalizada. As respostas foram salvas permanentemente.';
+            document.getElementById('result').prepend(finishedMsg);
+        }
 
         async function callGenerateQuestions(count) {
             const subject = document.getElementById('subject').value.trim();
@@ -485,6 +413,3 @@
         function showError(message) {
             document.getElementById('result').innerHTML = `<div class="error">❌ ${message}</div>`;
         }
-    </script>
-</body>
-</html>
