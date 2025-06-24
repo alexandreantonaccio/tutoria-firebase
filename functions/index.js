@@ -1,219 +1,267 @@
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const functions = require("firebase-functions");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const admin = require('firebase-admin');
-const cors = require('cors')({ origin: true });
+
 // Initialize Firebase Admin
 admin.initializeApp();
 const db = admin.firestore();
-
 const { FieldValue } = require('firebase-admin/firestore');
-// Initialize Gemini API with your API key
-const genAI = new GoogleGenerativeAI('AIzaSyAh23yRMYYkQ5-z3gn7XhBwxuZD6pw5h5k');
 
-// Versão 1: Usando CORS middleware (Recomendado)
-exports.generateQuestions = functions.https.onRequest((req, res) => {
-  return cors(req, res, async () => {
-    // Verificar se é uma requisição POST
-    if (req.method !== 'POST') {
-      return res.status(405).send('Method Not Allowed');
-    }
+// **INSTRUÇÃO IMPORTANTE PARA DEPLOY**
+// Atingir o limite da API é normal no plano gratuito. Para produção, você DEVE:
+// 1. Habilitar o faturamento (Billing) no seu projeto Google Cloud.
+// 2. Obter uma nova chave de API no Google AI Studio.
+// 3. Salvar a chave de forma segura no ambiente do Firebase com o comando:
+//    firebase functions:config:set gemini.key="SUA_NOVA_CHAVE_DE_API"
+const geminiApiKey = functions.config().gemini?.key || "AIzaSyD8o2MTltzkSFjwBbNDF8vD3o8HrzG9ySM"; // Chave de fallback para testes
+if (!functions.config().gemini?.key) {
+    functions.logger.warn("Chave da API do Gemini não encontrada na configuração do Firebase. Usando chave de fallback. Para produção, configure a chave.");
+}
+const genAI = new GoogleGenerativeAI(geminiApiKey);
 
+
+const createPrompt = (count, subject) => `
+  Você é um especialista em criação de questões de múltipla escolha para estudantes de vestibular. 
+  Sua tarefa é gerar ${count} questões de alta qualidade que se assemelhem ao formato de provas de vestibular (Como: ENEM, textos longos, 
+  explicando a situação para poder começar a introduzir a problemática da questão),
+  com 5 alternativas (A, B, C, D, E) e uma única resposta correta.
+
+  As questões devem ser rigorosas, mas compreensíveis, e testar o conhecimento do estudante de forma eficaz.
+  A matéria das questões é: ${subject}.
+    
+  Sua resposta DEVE ser um array JSON válido de objetos. Cada objeto DEVE ter exatamente estas propriedades:
+  - enunciado: O texto completo da questão
+  - alternativas: Um array de exatamente 5 strings, cada uma começando com sua respectiva letra (Ex: "A) ...", "B) ...")
+  - alternativaCorreta: A letra da alternativa correta ("A", "B", "C", "D" ou "E")
+  - materia: A matéria "${subject}"
+  - assunto: O tópico específico da matéria
+  - nivel: O nível de dificuldade ("fácil", "médio" ou "difícil")
+
+  IMPORTANTE: É CRÍTICO que você retorne EXATAMENTE ${count} questões no array JSON. A resposta deve conter apenas o array, sem nenhum outro texto.`;
+
+const parseLLMResponse = (rawText) => {
     try {
-      // Para callable functions, os dados vêm em req.body.data
-      const { subject, count } = req.body.data;
-      
-      // Verificar autenticação
-      const token = req.headers.authorization?.split('Bearer ')[1];
-      if (!token) {
-        return res.status(401).json({ error: 'Token de autenticação necessário' });
-      }
+        const startIndex = rawText.indexOf('[');
+        const endIndex = rawText.lastIndexOf(']');
 
-      const decodedToken = await admin.auth().verifyIdToken(token);
-      const userId = decodedToken.uid;
+        if (startIndex === -1 || endIndex === -1) {
+            throw new Error("JSON array not found in the response.");
+        }
 
-      // Log para depuração
-      console.log("Received count:", count);
-      console.log("Received subject:", subject);
-      console.log("User ID:", userId);
- 
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
-      const prompt = `
-        Você é um especialista em criação de questões de múltipla escolha para estudantes de vestibular. 
-        Sua tarefa é gerar ${count} questões de alta qualidade que se assemelhem ao formato de provas de vestibular (Como: ENEM, textos longos, 
-        explicando a situação para poder começar a introduzir a problemática da questão),
-         com 5 alternativas (A, B, C, D, E) e uma única resposta correta.
-
-        As questões devem ser rigorosas, mas compreensíveis, e testar o conhecimento do estudante de forma eficaz.
-         
-        Sua resposta DEVE ser um array JSON válido de objetos. Cada objeto DEVE ter exatamente estas propriedades:
-        - enunciado: O texto completo da questão
-        - alternativas: Um array de exatamente 5 strings (as opções A, B, C, D, E)
-        - alternativaCorreta: A letra da alternativa correta ("A", "B", "C", "D" ou "E")
-        - materia: A matéria "${subject}"
-        - assunto: O tópico específico da matéria
-        - nivel: O nível de dificuldade ("fácil", "médio" ou "difícil")
-
-        IMPORTANTE: Retorne APENAS o array JSON, sem texto adicional antes ou depois.
-        
-        Exemplo de formato esperado:
-        [
-          {
-            "enunciado": "Em um experimento de cinemática, um objeto é lançado verticalmente para cima com velocidade inicial de 20 m/s. Considerando g = 10 m/s², qual será a altura máxima atingida pelo objeto?",
-            "alternativas": [
-              "10 metros",
-              "15 metros", 
-              "20 metros",
-              "25 metros",
-              "30 metros"
-            ],
-            "alternativaCorreta": "C",
-            "materia": "Física",
-            "assunto": "Cinemática",
-            "nivel": "médio"
-          }
-        ]
-      `;
-
-      const result = await model.generateContent(prompt);
-
-      if (!result || !result.response) {
-        throw new Error("Resposta inválida da LLM");
-      }
-
-      const response = await result.response;
-      const rawText = response.text();
-      
-      // Limpar o texto e tentar fazer parse do JSON
-      let questions;
-      try {
-        // Remove possíveis caracteres extras antes e depois do JSON
-        const cleanedText = rawText.replace(/```json\n?|\n?```/g, '').trim();
-        questions = JSON.parse(cleanedText);
+        const jsonString = rawText.substring(startIndex, endIndex + 1);
+        const questions = JSON.parse(jsonString);
         
         if (!Array.isArray(questions)) {
-          throw new Error("Resposta não é um array");
+            throw new Error("AI response is not a valid JSON array.");
         }
-      } catch (parseError) {
-        console.error("Erro ao fazer parse do JSON:", parseError);
-        console.error("Texto recebido:", rawText);
-        throw new Error("Formato de resposta inválido da IA");
-      }
-
-      // Validar estrutura das questões
-      const validatedQuestions = questions.slice(0, count).map((q, index) => {
-        if (!q.enunciado || !Array.isArray(q.alternativas) || q.alternativas.length !== 5 || !q.alternativaCorreta) {
-          throw new Error(`Questão ${index + 1} tem formato inválido`);
-        }
-        return {
-          enunciado: q.enunciado,
-          alternativas: q.alternativas,
-          alternativaCorreta: q.alternativaCorreta,
-          materia: q.materia || subject,
-          assunto: q.assunto || "Geral",
-          nivel: q.nivel || "médio"
-        };
-      });
-
-      // MUDANÇA: Salvar como subcoleção do usuário
-      const provaData = {
-        materia: subject,
-        questoes: validatedQuestions,
-        totalQuestoes: validatedQuestions.length,
-        criadaEm: FieldValue.serverTimestamp(),
-        status: 'ativa',
-        respostaUsuario: [],
-        pontuacao: 0,
-        finalizadaem: null
-      };
-
-      // Salvar na subcoleção provas do usuário
-      const provaRef = await db.collection('users').doc(userId).collection('provas').add(provaData);
-      console.log("Prova salva com ID:", provaRef.id, "para usuário:", userId);
-
-      // Retornar no formato esperado pelo Firebase Callable
-      res.status(200).json({
-        data: {
-          questions: validatedQuestions,
-          provaId: provaRef.id
-        }
-      });
-
-    } catch (error) {
-      console.error("Erro completo:", error);
-      res.status(500).json({
-        error: {
-          message: "Falha ao gerar questões",
-          details: error.message
-        }
-      });
+        return questions;
+    } catch (parseError) {
+        functions.logger.error("Error parsing JSON:", parseError);
+        functions.logger.error("Received text for parsing:", rawText);
+        throw new HttpsError("internal", "Invalid response format from the AI.");
     }
-  });
-});
-exports.getProvaDetails = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Usuário deve estar autenticado');
-  }
+};
 
-  const userId = context.auth.uid;
-  const { provaId } = data;
-
-  try {
-    const provaDoc = await db.collection('users').doc(userId).collection('provas').doc(provaId).get();
-    
-    if (!provaDoc.exists) {
-      throw new functions.https.HttpsError('not-found', 'Prova não encontrada');
+exports.generateQuestions = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'The function must be called by an authenticated user.');
     }
+    const userId = request.auth.uid;
+    const { subject, count } = request.data;
 
-    return provaDoc.data();
-  } catch (error) {
-    throw new functions.https.HttpsError('internal', 'Erro ao buscar prova', error);
-  }
-});
-
-exports.updateProva = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'Usuário deve estar autenticado');
+    if (!subject || !count) {
+        throw new HttpsError('invalid-argument', 'The "subject" and "count" parameters are required.');
     }
-
-    const userId = context.auth.uid;
-    const { provaId, respostasUsuario } = data;
 
     try {
-        // Buscar prova
-        const provaRef = db.collection('users').doc(userId).collection('provas').doc(provaId);
-        const provaDoc = await provaRef.get();
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const prompt = createPrompt(count, subject);
+
+        const result = await model.generateContent(prompt);
+        const questions = parseLLMResponse(result.response.text());
         
-        if (!provaDoc.exists) {
-            throw new functions.https.HttpsError('not-found', 'Prova não encontrada');
-        }
+        const validatedQuestions = questions.slice(0, count);
+
+        const provaData = {
+            materia: subject,
+            questoes: validatedQuestions,
+            totalQuestoes: validatedQuestions.length,
+            criadaEm: FieldValue.serverTimestamp(),
+            status: 'ativa',
+            respostaUsuario: [],
+            pontuacao: 0,
+            finalizadaEm: null
+        };
+
+        const provaRef = await db.collection('users').doc(userId).collection('provas').add(provaData);
         
-        const prova = provaDoc.data();
-        
-        // Verificar se a prova já foi finalizada
-        if (prova.status === 'finalizada') {
-            throw new functions.https.HttpsError('failed-precondition', 'Prova já finalizada não pode ser alterada');
-        }
-        
-        // Calcular pontuação
-        let pontuacao = 0;
-        prova.questoes.forEach((q, index) => {
-            if (respostasUsuario[index] === q.alternativaCorreta) {
-                pontuacao++;
-            }
-        });
-        
-        // Atualizar prova
-        await provaRef.update({
-            respostasUsuario,
-            pontuacao,
-            finalizadaEm: FieldValue.serverTimestamp(),
-            status: 'finalizada'
-        });
-        
-        return { success: true, pontuacao };
-        
+        return { questions: validatedQuestions, provaId: provaRef.id };
+
     } catch (error) {
-        throw new functions.https.HttpsError('internal', 'Erro ao atualizar prova', error);
+        functions.logger.error("Error in generateQuestions:", error);
+        if (error instanceof HttpsError) throw error;
+        throw new HttpsError("internal", "Failed to generate questions.");
+    }
+});
+
+exports.generateSimulado = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'The function must be called by an authenticated user.');
+    }
+    const userId = request.auth.uid;
+    const { area, foreignLanguage } = request.data;
+
+    if (!area) {
+        throw new HttpsError('invalid-argument', 'The "area" parameter is required.');
+    }
+
+    let generationPromises;
+    let finalExamName = area;
+    let isNivelamento = false;
+
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    switch (area) {
+        case 'Conhecimentos Gerais':
+            isNivelamento = true;
+            finalExamName = 'Nivelamento - Conhecimentos Gerais';
+            generationPromises = [
+                model.generateContent(createPrompt(4, 'Ciências Humanas (Misto)')),
+                model.generateContent(createPrompt(4, 'Ciências da Natureza (Misto)')),
+                model.generateContent(createPrompt(4, 'Matemática (Básica)')),
+                model.generateContent(createPrompt(3, 'Português (Interpretação)'))
+            ];
+            break;
+        case 'Ciências da Natureza':
+            generationPromises = ['Física', 'Química', 'Biologia'].map(topic => model.generateContent(createPrompt(15, topic)));
+            break;
+        case 'Ciências Humanas':
+            generationPromises = ['História', 'Geografia', 'Sociologia e Filosofia'].map(topic => model.generateContent(createPrompt(15, topic)));
+            break;
+        case 'Matemática':
+            generationPromises = ['Matemática', 'Matemática', 'Matemática'].map(topic => model.generateContent(createPrompt(15, topic)));
+            break;
+        case 'Linguagens e Códigos':
+            if (!foreignLanguage || (foreignLanguage !== 'Inglês' && foreignLanguage !== 'Espanhol')) {
+                throw new HttpsError('invalid-argument', 'For the Languages area, the foreign language is required.');
+            }
+            finalExamName = `Linguagens (${foreignLanguage})`;
+            generationPromises = [
+                model.generateContent(createPrompt(5, foreignLanguage)),
+                model.generateContent(createPrompt(20, 'Português (Interpretação de Texto e Gramática)')),
+                model.generateContent(createPrompt(20, 'Literatura Brasileira e Artes'))
+            ];
+            break;
+        default:
+            throw new HttpsError('invalid-argument', 'Invalid knowledge area.');
+    }
+
+    try {
+        const results = await Promise.all(generationPromises);
+
+        let allQuestions = [];
+        results.forEach(result => {
+            allQuestions.push(...parseLLMResponse(result.response.text()));
+        });
+        
+        const expectedCount = isNivelamento ? 15 : 45;
+        if (allQuestions.length !== expectedCount) {
+             functions.logger.warn(`Expected ${expectedCount} questions, but got ${allQuestions.length}.`);
+        }
+
+        const provaData = {
+            materia: finalExamName,
+            questoes: allQuestions,
+            totalQuestoes: allQuestions.length,
+            criadaEm: FieldValue.serverTimestamp(),
+            status: 'ativa',
+            respostaUsuario: [],
+            pontuacao: 0,
+            finalizadaEm: null
+        };
+
+        const provaRef = await db.collection('users').doc(userId).collection('provas').add(provaData);
+
+        return { questions: allQuestions, provaId: provaRef.id };
+
+    } catch (error) {
+        functions.logger.error("Error in generateSimulado:", error);
+        if (error instanceof HttpsError) throw error;
+        throw new HttpsError("internal", "Failed to generate the simulation.");
+    }
+});
+
+exports.generateExplanation = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'The function must be called by an authenticated user.');
+    }
+
+    const { question, userAnswer, correctAnswerText } = request.data;
+
+    if (!question || !userAnswer || !correctAnswerText) {
+        throw new HttpsError('invalid-argument', 'Missing required parameters.');
+    }
+
+    const prompt = `
+      Você é um tutor especialista em vestibular. Um aluno respondeu a uma questão e errou. Sua tarefa é fornecer uma explicação clara e pedagógica.
+      **Questão:**
+      - **Enunciado:** ${question.enunciado}
+      - **Matéria:** ${question.materia}
+      - **Assunto:** ${question.assunto}
+      **Respostas:**
+      - **Alternativa Correta:** ${correctAnswerText}
+      - **Alternativa que o aluno marcou:** ${userAnswer}
+      **Instruções:**
+      1. Explique por que a alternativa correta está certa.
+      2. Explique por que a alternativa do aluno está errada.
+      3. Conclua com uma dica de estudo.
+      Retorne a resposta em texto simples, bem estruturado.
+    `;
+
+    try {
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const result = await model.generateContent(prompt);
+        return { explanation: result.response.text() };
+    } catch (error) {
+        functions.logger.error("Error in generateExplanation:", error);
+        throw new HttpsError("internal", "Failed to generate explanation.");
+    }
+});
+
+exports.generateStudyPlan = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'The function must be called by an authenticated user.');
+    }
+
+    const { incorrectQuestions } = request.data;
+
+    if (!incorrectQuestions || incorrectQuestions.length === 0) {
+        return { plan: "Parabéns! Você acertou todas as questões. Continue assim!" };
+    }
+
+    const topicSummary = incorrectQuestions.map(q => `- Matéria: ${q.materia}, Assunto: ${q.assunto}`).join('\n');
+
+    const prompt = `
+      Você é um orientador de estudos especialista em preparação para o ENEM. Um aluno errou as seguintes questões:
+      **Resumo dos erros:**
+      ${topicSummary}
+      **Tarefa:**
+      Crie um plano de estudos conciso e prático, focado em reforçar os pontos fracos.
+      **Estrutura do Plano:**
+      - **Diagnóstico:** Breve análise dos pontos a melhorar.
+      - **Tópicos Prioritários:** Liste os 3 principais assuntos/matérias para focar.
+      - **Sugestões de Estudo:** Para cada tópico, dê 2-3 sugestões práticas.
+      - **Mensagem Final:** Termine com uma frase de incentivo.
+      Retorne o plano em Markdown (## para títulos, * para listas).
+    `;
+
+    try {
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const result = await model.generateContent(prompt);
+        return { plan: result.response.text() };
+    } catch (error) {
+        functions.logger.error("Error in generateStudyPlan:", error);
+        throw new HttpsError("internal", "Failed to generate study plan.");
     }
 });

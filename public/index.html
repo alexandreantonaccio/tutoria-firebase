@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TutorIA</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -30,6 +31,7 @@
             padding: 1rem 2.5rem; border-radius: 12px; font-weight: 700;
             transition: background-color 0.3s ease, transform 0.3s ease;
             text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer;
+            display: inline-block; text-decoration: none; text-align: center;
         }
         .btn:disabled { background-color: #3a3a5a; color: #888; cursor: not-allowed; transform: none; box-shadow: none; }
         .btn-primary {
@@ -37,6 +39,12 @@
             box-shadow: 0 4px 15px rgba(255, 145, 0, 0.4);
         }
         .btn-primary:hover:not(:disabled) { background-color: #e68200; transform: translateY(-2px); }
+        .btn-secondary {
+            background-color: #3298db; color: white;
+            box-shadow: 0 4px 15px rgba(50, 152, 219, 0.3);
+        }
+        .btn-secondary:hover:not(:disabled) { background-color: #287eb8; }
+
         .nav-link {
             padding: 0.75rem 1.5rem; border-radius: 10px; cursor: pointer;
             transition: background-color 0.3s ease, color 0.3s ease, transform 0.2s ease;
@@ -46,11 +54,61 @@
             background-color: #ff9100; color: white;
             box-shadow: 0 2px 8px rgba(255, 145, 0, 0.3);
         }
-        .nav-link:hover:not(:active) { background-color: #2a2a4a; color: #f0f0f0; transform: translateY(-2px); }
+        .nav-link:hover:not(.active) { background-color: #2a2a4a; color: #f0f0f0; transform: translateY(-2px); }
         .section-title { font-size: 2.5rem; font-weight: 700; color: white; margin-bottom: 2rem; }
         .hidden { display: none; }
 
-        /* --- ESTILOS DE REVISÃO E MAPA DE QUESTÕES --- */
+        /* --- Sidebar Styles --- */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 280px;
+            background-color: #1a1a2e;
+            padding: 2rem;
+            z-index: 1000;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease-in-out;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.2);
+        }
+        .sidebar.active {
+            transform: translateX(0);
+        }
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 999;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            pointer-events: none;
+        }
+        .sidebar-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .sidebar .nav-link {
+            display: block;
+            width: 100%;
+            text-align: left;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+        .close-sidebar-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 2rem;
+            color: #e0e0e0;
+            cursor: pointer;
+        }
+
+
+        /* --- Test review and question map styles --- */
         .question-map-btn {
             width: 40px; height: 40px; border-radius: 50%;
             display: inline-flex; align-items: center; justify-content: center;
@@ -71,7 +129,7 @@
         .review-mode label { cursor: default; }
         .correct-answer-text { color: #5eead4; font-weight: bold; }
         
-        /* Estilos para o Timer */
+        /* --- Timer styles --- */
         #timer-container {
             position: fixed;
             top: 100px;
@@ -85,9 +143,43 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             z-index: 100;
         }
+
+        /* --- New Loader Animation --- */
+        .loader-spinner {
+            border: 5px solid rgba(255, 255, 255, 0.2);
+            border-left-color: #ff9100;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        /* Styling for explanation and study plan containers */
+        .explanation-container, #study-plan-container {
+            background-color: rgba(42, 42, 74, 0.5);
+            border-left: 4px solid #3298db;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+            border-radius: 0 8px 8px 0;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
+
+    <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <div id="sidebar-menu" class="sidebar">
+        <span class="close-sidebar-btn" onclick="toggleSidebar()">&times;</span>
+        <div class="text-2xl font-extrabold text-white mb-8">Tutor<span class="text-[#ff9100]">IA</span></div>
+        <a id="sidebar-nav-home" class="nav-link" onclick="handleNavClick('home')">Início</a>
+        <a id="sidebar-nav-gerar-provas" class="nav-link" onclick="handleNavClick('gerar-provas')">Gerar Provas</a>
+        <a id="sidebar-nav-estatisticas" class="nav-link" onclick="handleNavClick('estatisticas')">Estatísticas</a>
+        <a id="sidebar-nav-gerar-simulados" class="nav-link" onclick="handleNavClick('gerar-simulados')">Gerar Simulados</a>
+        <a id="sidebar-nav-minhas-provas" class="nav-link" onclick="handleNavClick('minhas-provas')">Minhas Provas</a>
+        <a id="sidebar-nav-profile" class="nav-link" onclick="handleNavClick('profile')">Perfil</a>
+    </div>
 
     <header class="bg-[#1a1a2e] shadow-xl py-5 px-6 md:px-12 sticky top-0 z-50">
         <nav class="container mx-auto flex items-center justify-between">
@@ -95,26 +187,28 @@
             <div class="hidden md:flex flex-wrap space-x-4">
                 <a id="nav-home" class="nav-link active" onclick="showPage('home')">Início</a>
                 <a id="nav-gerar-provas" class="nav-link" onclick="showPage('gerar-provas')">Gerar Provas</a>
+                <a id="nav-estatisticas" class="nav-link" onclick="showPage('estatisticas')">Estatísticas</a>
                 <a id="nav-gerar-simulados" class="nav-link" onclick="showPage('gerar-simulados')">Gerar Simulados</a>
                 <a id="nav-minhas-provas" class="nav-link" onclick="showPage('minhas-provas')">Minhas Provas</a>
                 <a id="nav-profile" class="nav-link" onclick="showPage('profile')">Perfil</a>
             </div>
-            <div class="md:hidden"><button class="text-white text-3xl">&#9776;</button></div>
+            <div class="md:hidden"><button class="text-white text-3xl" onclick="toggleSidebar()">&#9776;</button></div>
         </nav>
     </header>
 
     <main id="app-content" class="flex-1 p-6 md:p-12 container mx-auto">
-        </main>
+        <!-- Content will be rendered here by JavaScript -->
+    </main>
     <div id="timer-container" class="hidden"></div>
 
 
 <script>
-    // --- INÍCIO DA LÓGICA FIREBASE E DO APLICATIVO ---
+    // --- START OF FIREBASE AND APP LOGIC ---
     const firebaseConfig = {
         apiKey: "AIzaSyDbzqfmNxZjuDbkCmjqrKGhB-rTRT6e3oY",
         authDomain: "tutoria-firebase.firebaseapp.com",
         projectId: "tutoria-firebase",
-        storageBucket: "tutoria-firebase.firebasestorage.app",
+        storageBucket: "tutoria-firebase.appspot.com",
         messagingSenderId: "1070606817177",
         appId: "1:1070606817177:web:53a2624d04d669ff452508"
     };
@@ -123,6 +217,7 @@
     const db = firebase.firestore();
     const functions = firebase.functions();
 
+    // Use emulators if running on localhost
     if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
         auth.useEmulator('http://localhost:9099/');
         db.useEmulator('localhost', 8080);
@@ -132,19 +227,58 @@
     let currentUser = null;
     let currentTest = {};
     let activePage = 'home';
-    let selectedSubject = null;
+    let selectedSubject = null; // For regular tests
+    let selectedArea = null; // For ENEM simulations
+    let selectedLanguage = null; // For ENEM-Linguagens
     let timerInterval = null;
+    let performanceChart = null; // To hold the chart instance
 
+    // --- AUTHENTICATION ---
     auth.onAuthStateChanged(async user => {
-        if (!user) { window.location.replace('login.html'); return; }
+        const navContainer = document.querySelector('header nav > div.hidden.md\\:flex');
+        const appContent = document.getElementById('app-content');
+
+        if (!user) {
+            if (navContainer) navContainer.style.display = 'none'; 
+            if (appContent) {
+                appContent.innerHTML = `
+                    <div class="card text-center max-w-lg mx-auto">
+                        <h1 class="section-title text-3xl">Acesso Restrito</h1>
+                        <p class="text-gray-300 mb-6">
+                            Você precisa estar logado para acessar esta página.
+                        </p>
+                        <a href="login.html" class="btn btn-primary">Ir para Login</a>
+                    </div>
+                `;
+            }
+            return;
+        }
+
+        if (navContainer) navContainer.style.display = 'flex';
         currentUser = user;
         const userRef = db.collection('users').doc(user.uid);
         const doc = await userRef.get();
-        if (!doc.exists) { await userRef.set({ nome: user.displayName || 'Usuário', email: user.email }); }
+        if (!doc.exists) {
+            await userRef.set({
+                nome: user.displayName || 'Usuário',
+                email: user.email
+            });
+        }
         showPage('home');
     });
     
-    // --- LÓGICA DO TIMER ---
+    // --- SIDEBAR LOGIC ---
+    function toggleSidebar() {
+        document.getElementById('sidebar-menu').classList.toggle('active');
+        document.getElementById('sidebar-overlay').classList.toggle('active');
+    }
+
+    function handleNavClick(pageName) {
+        showPage(pageName);
+        toggleSidebar();
+    }
+    
+    // --- TIMER LOGIC ---
     function startTimer(durationInSeconds) {
         const timerContainer = document.getElementById('timer-container');
         timerContainer.classList.remove('hidden');
@@ -171,7 +305,7 @@
         if(timerContainer) timerContainer.classList.add('hidden');
     }
 
-    // --- LÓGICA DE NAVEGAÇÃO DA PROVA ---
+    // --- TEST NAVIGATION LOGIC ---
     function navigateToQuestion(index) {
         if (!currentTest.isSubmitted) saveCurrentAnswer();
         currentTest.currentQuestionIndex = index;
@@ -198,20 +332,22 @@
         }
     }
 
-    // --- LÓGICA DE EXIBIÇÃO DA PROVA E RESULTADOS ---
-
+    // --- TEST DISPLAY AND REVIEW LOGIC ---
     function displayQuestions(questions, provaId, durationInSeconds = null) {
         currentTest = {
-            provaId, questions, durationInSeconds,
+            provaId,
+            questions,
+            durationInSeconds,
             userAnswers: new Array(questions.length).fill(null),
-            currentQuestionIndex: 0, isSubmitted: false
+            currentQuestionIndex: 0,
+            isSubmitted: false
         };
         const quizContainerHtml = `<div id="quiz-content" class="w-full">
             <div id="question-map-container" class="card mb-6 p-4"></div>
             <div id="question-content-container"></div>
             <div id="navigation-controls-container" class="mt-8 flex justify-between items-center"></div>
         </div>`;
-        document.getElementById('result').innerHTML = quizContainerHtml;
+        document.getElementById('app-content').innerHTML = `<div id="result">${quizContainerHtml}</div>`;
         renderCurrentQuestion();
         if (durationInSeconds) {
             startTimer(durationInSeconds);
@@ -222,13 +358,14 @@
         const { questions, userAnswers, currentQuestionIndex, isSubmitted } = currentTest;
         const question = questions[currentQuestionIndex];
         
-        // Renderizar Mapa de Questões
         const mapContainer = document.getElementById('question-map-container');
         mapContainer.innerHTML = `<div class="flex flex-wrap gap-3 justify-center">${questions.map((q, i) => {
             let statusClass = '';
             if (isSubmitted) {
-                const isCorrect = userAnswers[i] === q.alternativaCorreta;
-                statusClass = isCorrect ? 'correct' : 'incorrect';
+                if (userAnswers[i] !== null) {
+                    const isCorrect = userAnswers[i] === q.alternativaCorreta;
+                    statusClass = isCorrect ? 'correct' : 'incorrect';
+                }
             } else {
                 statusClass = userAnswers[i] !== null ? 'answered' : '';
             }
@@ -236,11 +373,14 @@
             return `<button class="question-map-btn ${currentClass} ${statusClass}" onclick="navigateToQuestion(${i})">${i + 1}</button>`;
         }).join('')}</div>`;
 
-        // Renderizar Conteúdo da Questão
         const questionContainer = document.getElementById('question-content-container');
+        
+        let explanationHtml = '';
         const alternativesHtml = question.alternativas.map((alt, altIndex) => {
             const letter = String.fromCharCode(65 + altIndex);
-            
+            const hasPrefix = /^[A-E][\.\)]\s/.test(alt.trim());
+            const formattedAlt = hasPrefix ? alt.trim() : `${letter}) ${alt.trim()}`;
+
             if (isSubmitted) {
                 const userAnswer = userAnswers[currentQuestionIndex];
                 const isCorrectAnswer = letter === question.alternativaCorreta;
@@ -249,18 +389,32 @@
                 if (isUserChoice && isCorrectAnswer) choiceClass = 'user-correct';
                 else if (isUserChoice && !isCorrectAnswer) choiceClass = 'user-incorrect';
                 else if (isCorrectAnswer) choiceClass = 'actual-correct';
+
+                if (isUserChoice && !isCorrectAnswer) {
+                     explanationHtml = `
+                        <div class="mt-6 text-center">
+                            <button id="explain-btn-${currentQuestionIndex}" class="btn btn-secondary text-sm py-2 px-4" onclick="fetchExplanation(${currentQuestionIndex})">
+                                Gerar Explicação Inteligente
+                            </button>
+                        </div>
+                        <div id="explanation-${currentQuestionIndex}"></div>`;
+                }
                 
-                return `<div class="review-choice review-choice-label ${choiceClass}"><label for="q_${letter}">${letter}) ${alt}</label></div>`;
+                return `<div class="review-choice review-choice-label ${choiceClass}"><label for="q_${letter}">${formattedAlt}</label></div>`;
             } else {
                 const isChecked = userAnswers[currentQuestionIndex] === letter;
-                return `<div class="flex items-center p-2 rounded-lg hover:bg-gray-700"><input type="radio" name="current_question" value="${letter}" id="q_${letter}" ${isChecked ? 'checked' : ''} class="mr-4 h-5 w-5"><label for="q_${letter}" class="text-gray-300 w-full cursor-pointer">${letter}) ${alt}</label></div>`;
+                return `<div class="flex items-center p-2 rounded-lg hover:bg-gray-700"><input type="radio" name="current_question" value="${letter}" id="q_${letter}" ${isChecked ? 'checked' : ''} class="mr-4 h-5 w-5"><label for="q_${letter}" class="text-gray-300 w-full cursor-pointer">${formattedAlt}</label></div>`;
             }
         }).join('');
         
         const reviewModeClass = isSubmitted ? 'review-mode' : '';
-        questionContainer.innerHTML = `<div class="question card ${reviewModeClass}"><h3 class="text-xl font-bold text-white mb-4">Questão ${currentQuestionIndex + 1} de ${questions.length}</h3><p class="text-gray-300 mb-5">${question.enunciado}</p><div class="space-y-3">${alternativesHtml}</div></div>`;
+        questionContainer.innerHTML = `<div class="question card ${reviewModeClass}">
+            <h3 class="text-xl font-bold text-white mb-4">Questão ${currentQuestionIndex + 1} de ${questions.length}</h3>
+            <p class="text-gray-300 mb-5">${question.enunciado}</p>
+            <div class="space-y-3">${alternativesHtml}</div>
+            ${explanationHtml}
+        </div>`;
 
-        // Renderizar Controles de Navegação
         const navContainer = document.getElementById('navigation-controls-container');
         const isFirstQuestion = currentQuestionIndex === 0;
         const isLastQuestion = currentQuestionIndex === questions.length - 1;
@@ -295,13 +449,14 @@
         if (provaId && currentUser) {
             try {
                 await db.collection('users').doc(currentUser.uid).collection('provas').doc(provaId).update({
-                    respostaUsuario: userAnswers, pontuacao: correctCount,
-                    finalizadaEm: firebase.firestore.FieldValue.serverTimestamp(), status: 'finalizada'
+                    respostaUsuario: userAnswers,
+                    pontuacao: correctCount,
+                    finalizadaEm: firebase.firestore.FieldValue.serverTimestamp(),
+                    status: 'finalizada'
                 });
             } catch (error) { console.error('Erro ao salvar respostas:', error); }
         }
         
-        // Iniciar modo de revisão
         displayReview(correctCount);
     }
 
@@ -320,33 +475,43 @@
         const quizContainerHtml = `
             <div id="question-map-container" class="card mb-6 p-4"></div>
             <div id="question-content-container"></div>
-            <div id="navigation-controls-container" class="mt-8 flex justify-between items-center"></div>`;
+            <div id="navigation-controls-container" class="mt-8 flex justify-between items-center"></div>
+            <div id="study-plan-container" class="mt-12"></div>
+        `;
         
         const resultContainer = document.getElementById('result');
         if (resultContainer) {
             resultContainer.innerHTML = summaryHtml + quizContainerHtml;
         } else {
-            // Fallback para quando 'result' não existe (e.g., em 'minhas-provas')
             appContent.innerHTML = `<div id="result">${summaryHtml + quizContainerHtml}</div>`;
         }
 
-        currentTest.currentQuestionIndex = 0; // Inicia a revisão da primeira questão
+        currentTest.currentQuestionIndex = 0; 
         renderCurrentQuestion();
+        fetchStudyPlan(); 
     }
     
-    // --- ROTEAMENTO E RENDERIZAÇÃO DE PÁGINAS ---
+    // --- PAGE ROUTING AND RENDERING ---
     const appContent = document.getElementById('app-content');
     const navLinks = document.querySelectorAll('.nav-link');
+
     function showPage(pageName) {
         activePage = pageName;
         selectedSubject = null;
+        selectedArea = null;
+        selectedLanguage = null;
         stopTimer();
-        navLinks.forEach(link => link.classList.remove('active'));
-        const currentNavLink = document.getElementById(`nav-${pageName}`);
-        if (currentNavLink) currentNavLink.classList.add('active');
+
+        document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+        const desktopLink = document.getElementById(`nav-${pageName}`);
+        const mobileLink = document.getElementById(`sidebar-nav-${pageName}`);
+        if(desktopLink) desktopLink.classList.add('active');
+        if(mobileLink) mobileLink.classList.add('active');
+
         switch (pageName) {
             case 'home': appContent.innerHTML = renderHomePage(); break;
             case 'gerar-provas': appContent.innerHTML = renderGerarProvasPage(); break;
+            case 'estatisticas': renderStatisticsPage(); break;
             case 'gerar-simulados': appContent.innerHTML = renderGerarSimuladosPage(); break;
             case 'minhas-provas': appContent.innerHTML = renderMinhasProvasPage(); loadUserProvas(); break;
             case 'profile': appContent.innerHTML = renderProfilePage(); break;
@@ -354,43 +519,419 @@
         }
     }
     
-    function selectSubject(subject, element) {
-        selectedSubject = subject;
-        document.querySelectorAll('.subject-btn').forEach(btn => btn.classList.remove('active'));
-        element.classList.add('active');
-    }
-
-    async function callGenerateQuestions(count, subjectValue = null, durationInSeconds = null) {
-        const subject = subjectValue ? subjectValue : selectedSubject;
-        if (!subject) { alert('Por favor, selecione uma matéria primeiro.'); return; }
-        const currentPage = durationInSeconds ? 'gerar-simulados' : 'gerar-provas';
-        if (activePage !== currentPage) { showPage(currentPage); await new Promise(resolve => setTimeout(resolve, 50)); }
-        const allButtons = document.querySelectorAll('button');
-        allButtons.forEach(btn => btn.disabled = true);
-        document.getElementById('generation-form')?.classList.add('hidden');
-        document.getElementById('loader').classList.remove('hidden');
-        document.getElementById('result').innerHTML = '';
+    // --- FIREBASE FUNCTIONS CALLERS ---
+    async function callGenerateQuestions(count) {
+        if (!selectedSubject) {
+            alert('Por favor, selecione uma matéria primeiro.');
+            return;
+        }
+        
+        const form = document.getElementById('generation-form');
+        const loader = document.getElementById('loader');
+        const resultDiv = document.getElementById('result');
+        
+        if (form) form.style.display = 'none';
+        if (loader) loader.style.display = 'block';
+        if(resultDiv) resultDiv.innerHTML = '';
+        
         try {
-            const generateQuestions = functions.httpsCallable('generateQuestions');
-            const result = await generateQuestions({ subject, count });
-            if (result.data && result.data.questions) { displayQuestions(result.data.questions, result.data.provaId, durationInSeconds); }
-            else { throw new Error(result.data.error || 'Formato de resposta inválido.'); }
+            const generateQuestionsFn = functions.httpsCallable('generateQuestions');
+            const result = await generateQuestionsFn({ subject: selectedSubject, count: count });
+            if (result.data && result.data.questions) { 
+                displayQuestions(result.data.questions, result.data.provaId, null); 
+            } else { 
+                throw new Error(result.data.error || 'Formato de resposta inválido.'); 
+            }
         } catch (error) {
             showError(`Falha ao gerar questões: ${error.message}`);
+            if (form) form.style.display = 'block';
         } finally {
-            document.getElementById('loader').classList.add('hidden');
+            if (loader) loader.style.display = 'none';
+        }
+    }
+
+    async function callGenerateNivelamento() {
+        const appContent = document.getElementById('app-content');
+        appContent.innerHTML = `<div id="loader" class="text-center p-6"><div class="loader-spinner"></div><p class="text-xl text-yellow-400 mt-4">Gerando seu teste de nivelamento...</p></div><div id="result"></div>`;
+        
+        try {
+            const generateSimuladoFn = functions.httpsCallable('generateSimulado');
+            const result = await generateSimuladoFn({ area: 'Conhecimentos Gerais' });
+            if (result.data && result.data.questions) {
+                displayQuestions(result.data.questions, result.data.provaId, null); 
+            } else {
+                throw new Error(result.data.error || 'Formato de resposta inválido do servidor.');
+            }
+        } catch (error) {
+            console.error("Erro ao gerar nivelamento:", error);
+            showError(`Falha ao gerar o teste de nivelamento: ${error.message}`);
+            showPage('home');
+        }
+    }
+
+    async function callGenerateEnemSimulado() {
+        if (!selectedArea) {
+            alert('Por favor, selecione uma área do conhecimento.');
+            return;
+        }
+        if (selectedArea === 'Linguagens e Códigos' && !selectedLanguage) {
+            alert('Por favor, selecione Inglês ou Espanhol.');
+            return;
+        }
+
+        const durationInSeconds = 2.5 * 3600; 
+        const form = document.getElementById('generation-form');
+        const loader = document.getElementById('loader');
+        const resultDiv = document.getElementById('result');
+        const allButtons = document.querySelectorAll('button');
+        
+        allButtons.forEach(btn => btn.disabled = true);
+        if(form) form.classList.add('hidden');
+        loader.classList.remove('hidden');
+        resultDiv.innerHTML = '';
+
+        try {
+            const generateSimuladoFn = functions.httpsCallable('generateSimulado');
+            const result = await generateSimuladoFn({ area: selectedArea, foreignLanguage: selectedLanguage });
+            if (result.data && result.data.questions) { 
+                displayQuestions(result.data.questions, result.data.provaId, durationInSeconds); 
+            } else { 
+                throw new Error(result.data.error || 'Formato de resposta inválido do servidor.'); 
+            }
+        } catch (error) {
+            console.error("Erro ao chamar generateSimulado:", error);
+            showError(`Falha ao gerar simulado: ${error.message}`);
+            if (form) form.classList.remove('hidden'); 
+        } finally {
+            loader.classList.add('hidden');
             allButtons.forEach(btn => btn.disabled = false);
         }
     }
+
+    // --- NEW AI EXPLANATION AND STUDY PLAN FUNCTIONS ---
+
+    async function fetchExplanation(index) {
+        const button = document.getElementById(`explain-btn-${index}`);
+        const container = document.getElementById(`explanation-${index}`);
+        
+        button.disabled = true;
+        container.innerHTML = `<div class="loader-spinner !w-8 !h-8 !border-4 mx-auto my-4"></div>`;
+        
+        const question = currentTest.questions[index];
+        const userAnswerLetter = currentTest.userAnswers[index];
+        const correctAnswerLetter = question.alternativaCorreta;
+
+        const findAlternativeText = (letter) => {
+            const altIndex = letter.charCodeAt(0) - 65;
+            return question.alternativas[altIndex] || 'Não encontrada';
+        };
+
+        try {
+            const generateExplanationFn = functions.httpsCallable('generateExplanation');
+            const result = await generateExplanationFn({
+                question: question,
+                userAnswer: findAlternativeText(userAnswerLetter),
+                correctAnswerText: findAlternativeText(correctAnswerLetter)
+            });
+            
+            container.innerHTML = `
+                <div class="explanation-container">
+                    <h4 class="text-lg font-bold text-white mb-2">Análise da Questão</h4>
+                    <p class="text-gray-300 whitespace-pre-wrap">${result.data.explanation}</p>
+                </div>
+            `;
+        } catch (error) {
+            container.innerHTML = `<p class="text-red-400 text-center mt-4">Falha ao gerar explicação.</p>`;
+            button.disabled = false;
+        }
+    }
+
+    async function fetchStudyPlan() {
+        const container = document.getElementById('study-plan-container');
+        if (!container) return;
+
+        const incorrectQuestions = currentTest.questions.filter((q, i) => 
+            currentTest.userAnswers[i] !== q.alternativaCorreta && currentTest.userAnswers[i] !== null
+        );
+
+        if (incorrectQuestions.length === 0 && currentTest.userAnswers.every(a => a !== null)) {
+            container.innerHTML = `
+                <div class="card text-center bg-green-900 border-l-4 border-green-400">
+                    <h2 class="section-title !text-3xl">Parabéns!</h2>
+                    <p class="text-gray-200">Você acertou todas as questões! Não há necessidade de um plano de estudos para esta prova. Continue com o ótimo trabalho!</p>
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = `<div class="loader-spinner"></div><p class="text-xl text-yellow-400 text-center mt-4">Gerando seu plano de estudos personalizado...</p>`;
+
+        try {
+            const generateStudyPlanFn = functions.httpsCallable('generateStudyPlan');
+            const result = await generateStudyPlanFn({ incorrectQuestions });
+            
+            container.innerHTML = `
+                <div class="card">
+                    <h2 class="section-title !text-3xl text-center">Plano de Estudos Personalizado</h2>
+                    <div class="text-gray-300 whitespace-pre-wrap">${simpleMarkdownToHtml(result.data.plan)}</div>
+                </div>`;
+        } catch (error) {
+            container.innerHTML = `<p class="text-red-400 text-center">Falha ao gerar o plano de estudos.</p>`;
+        }
+    }
     
-    // --- TEMPLATES HTML DAS PÁGINAS ---
-    function renderHomePage() { return `<section class="mb-12 text-center py-10"><h1 class="text-5xl md:text-6xl font-extrabold text-white leading-tight mb-6">Olá, ${currentUser?currentUser.displayName.split(' ')[0]:'Aluno'}!</h1><p class="text-2xl md:text-3xl text-gray-300 mb-10">Pronto para transformar seu estudo?</p><button onclick="callGenerateQuestions(10, 'Conhecimentos Gerais')" class="btn btn-primary text-xl md:text-2xl py-4 px-10">Realizar Nivelamento</button><p class="text-gray-400 mt-6 text-lg">Descubra seus pontos fortes e comece a brilhar!</p></section><section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12"><div class="card p-8 flex flex-col items-center text-center"><h2 class="text-2xl font-bold text-white mb-2">Provas Anteriores</h2><p class="text-gray-400">Acesse seu histórico completo de avaliações e progresso.</p><button class="mt-4 text-[#ff9100] hover:underline font-semibold" onclick="showPage('minhas-provas')">Ver Detalhes</button></div><div class="card p-8 flex flex-col items-center text-center"><h2 class="text-2xl font-bold text-white mb-2">Simulados ENEM</h2><p class="text-gray-400">Prepare-se com 45 questões e tempo cronometrado.</p><button class="mt-4 text-[#5eead4] hover:underline font-semibold" onclick="showPage('gerar-simulados')">Fazer Simulado</button></div><div class="card p-8 flex flex-col items-center text-center"><h2 class="text-2xl font-bold text-white mb-2">Provas Rápidas</h2><p class="text-gray-400">Crie provas personalizadas por matéria e quantidade.</p><button class="mt-4 text-[#8b5cf6] hover:underline font-semibold" onclick="showPage('gerar-provas')">Gerar Prova</button></div></section>`;}
-    function renderGerarProvasPage() { const m=['História','Geografia','Matemática','Português','Física','Biologia','Química','Filosofia','Sociologia','Inglês','Espanhol'];const b=m.map(s=>`<button class="btn subject-btn bg-[#2a2a4a] hover:bg-[#3a3a5a] text-base p-3 md:p-4" onclick="selectSubject('${s}', this)">${s}</button>`).join('');return `<h1 class="section-title text-center md:text-left">Gerar Prova Rápida</h1><div id="generation-form" class="card p-8 mb-8"><div class="mb-8"><h3 class="text-gray-300 text-lg font-semibold mb-4">1. Escolha a Matéria:</h3><div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">${b}</div></div><div><h3 class="text-gray-300 text-lg font-semibold mb-4">2. Escolha o Número de Questões:</h3><div class="flex flex-wrap gap-4"><button class="btn btn-primary" onclick="callGenerateQuestions(5)">5</button><button class="btn btn-primary" onclick="callGenerateQuestions(10)">10</button><button class="btn btn-primary" onclick="callGenerateQuestions(15)">15</button></div></div></div><div id="loader" class="hidden text-center text-xl text-yellow-400 p-6">🔄 Gerando questões... Aguarde.</div><div id="result"></div>`;}
-    function renderGerarSimuladosPage() { const areas=['Linguagens e Códigos', 'Ciências Humanas', 'Ciências da Natureza', 'Matemática']; const duration = 2.5 * 3600; const buttonsHtml = areas.map(area => `<button class="btn btn-primary text-base p-4" onclick="callGenerateQuestions(45, '${area}', ${duration})">${area}</button>`).join(''); return `<h1 class="section-title text-center md:text-left">Simulado Estilo ENEM</h1><div id="generation-form" class="card p-8 mb-8"><h3 class="text-gray-300 text-lg font-semibold mb-4">Escolha a área do conhecimento para gerar um simulado de 45 questões (2h 30min):</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4">${buttonsHtml}</div></div><div id="loader" class="hidden text-center text-xl text-yellow-400 p-6">🔄 Gerando simulado... Aguarde.</div><div id="result"></div>`;}
+    function simpleMarkdownToHtml(md) {
+        if(!md) return '';
+        return md
+            .replace(/^## (.*$)/gim, '<h3 class="text-2xl font-bold text-teal-300 mb-4 mt-6">$1</h3>')
+            .replace(/^### (.*$)/gim, '<h4 class="text-xl font-semibold text-white mb-2 mt-4">$1</h4>')
+            .replace(/^\* (.*$)/gim, '<li class="ml-6 list-disc mb-2">$1</li>')
+            .replace(/\*\*(.*)\*\*/g, '<strong>$1</strong>')
+            .replace(/\n/g, '<br>');
+    }
+
+    // --- HTML PAGE TEMPLATES ---
+    function renderHomePage() { 
+        return `<section class="mb-12 text-center py-10">
+            <h1 class="text-5xl md:text-6xl font-extrabold text-white leading-tight mb-6">Olá, ${currentUser?currentUser.displayName.split(' ')[0]:'Aluno'}!</h1>
+            <p class="text-2xl md:text-3xl text-gray-300 mb-10">Pronto para transformar seu estudo?</p>
+            <button onclick="callGenerateNivelamento()" class="btn btn-primary text-xl md:text-2xl py-4 px-10">Realizar Nivelamento</button>
+            <p class="text-gray-400 mt-6 text-lg">Descubra seus pontos fortes e comece a brilhar!</p>
+        </section>
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+            <div class="card p-8 flex flex-col items-center text-center">
+                <h2 class="text-2xl font-bold text-white mb-2">Provas Anteriores</h2>
+                <p class="text-gray-400">Acesse seu histórico completo de avaliações e progresso.</p>
+                <button class="mt-4 text-[#ff9100] hover:underline font-semibold" onclick="showPage('minhas-provas')">Ver Detalhes</button>
+            </div>
+            <div class="card p-8 flex flex-col items-center text-center">
+                <h2 class="text-2xl font-bold text-white mb-2">Simulados ENEM</h2>
+                <p class="text-gray-400">Prepare-se com 45 questões e tempo cronometrado.</p>
+                <button class="mt-4 text-[#5eead4] hover:underline font-semibold" onclick="showPage('gerar-simulados')">Fazer Simulado</button>
+            </div>
+            <div class="card p-8 flex flex-col items-center text-center">
+                <h2 class="text-2xl font-bold text-white mb-2">Provas Rápidas</h2>
+                <p class="text-gray-400">Crie provas personalizadas por matéria e quantidade.</p>
+                <button class="mt-4 text-[#8b5cf6] hover:underline font-semibold" onclick="showPage('gerar-provas')">Gerar Prova</button>
+            </div>
+        </section>`;
+    }
+    
+    function renderGerarProvasPage() {
+        const m = ['História','Geografia','Matemática','Português','Física','Biologia','Química','Filosofia','Sociologia','Inglês','Espanhol'];
+        const b = m.map(s => `<button class="btn subject-btn bg-[#2a2a4a] hover:bg-[#3a3a5a] text-base p-3 md:p-4" onclick="selectSubject('${s}', this)">${s}</button>`).join('');
+        return `<h1 class="section-title text-center md:text-left">Gerar Prova Rápida</h1><div id="generation-form" class="card p-8 mb-8"><div class="mb-8"><h3 class="text-gray-300 text-lg font-semibold mb-4">1. Escolha a Matéria:</h3><div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">${b}</div></div><div><h3 class="text-gray-300 text-lg font-semibold mb-4">2. Escolha o Número de Questões:</h3><div class="flex flex-wrap gap-4"><button class="btn btn-primary" onclick="callGenerateQuestions(5)">5</button><button class="btn btn-primary" onclick="callGenerateQuestions(10)">10</button><button class="btn btn-primary" onclick="callGenerateQuestions(15)">15</button></div></div></div><div id="loader" class="hidden text-center p-6"><div class="loader-spinner"></div><p class="text-xl text-yellow-400 mt-4">Gerando questões, por favor aguarde...</p></div><div id="result"></div>`;
+    }
+
+    function selectSubject(subject, element) {
+        selectedSubject = subject;
+        document.querySelectorAll('#generation-form .subject-btn').forEach(btn => btn.classList.remove('active'));
+        element.classList.add('active');
+    }
+        
+    function renderGerarSimuladosPage() {
+        const areas = ['Linguagens e Códigos', 'Ciências Humanas', 'Ciências da Natureza', 'Matemática'];
+        const areaButtons = areas.map(area => `<button class="btn subject-btn bg-[#2a2a4a] hover:bg-[#3a3a5a] text-base p-4" onclick="selectArea('${area}', this)">${area}</button>`).join('');
+        
+        return `
+            <h1 class="section-title text-center md:text-left">Simulado Estilo ENEM</h1>
+            <div id="generation-form" class="card p-8 mb-8 space-y-8">
+                <div>
+                    <h3 class="text-gray-300 text-lg font-semibold mb-4">1. Escolha a Área do Conhecimento:</h3>
+                    <div id="area-selection" class="grid grid-cols-1 md:grid-cols-2 gap-4">${areaButtons}</div>
+                </div>
+
+                <div id="language-selection" class="hidden">
+                    <h3 class="text-gray-300 text-lg font-semibold mb-4">2. Escolha a Língua Estrangeira:</h3>
+                    <div id="language-buttons" class="flex flex-wrap gap-4">
+                        <button class="btn subject-btn bg-[#2a2a4a] hover:bg-[#3a3a5a]" onclick="selectLanguage('Inglês', this)">Inglês</button>
+                        <button class="btn subject-btn bg-[#2a2a4a] hover:bg-[#3a3a5a]" onclick="selectLanguage('Espanhol', this)">Espanhol</button>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-gray-300 text-lg font-semibold mb-4">3. Gerar Simulado</h3>
+                    <p class="text-gray-400 mb-4">Será gerado um simulado de 45 questões com duração de 2h 30min.</p>
+                    <button id="generate-simulado-btn" class="btn btn-primary w-full md:w-auto" onclick="callGenerateEnemSimulado()" disabled>Selecione uma área para começar</button>
+                </div>
+            </div>
+            <div id="loader" class="hidden text-center p-6"><div class="loader-spinner"></div><p class="text-xl text-yellow-400 mt-4">Gerando simulado... Isso pode levar um minuto.</p></div>
+            <div id="result"></div>
+        `;
+    }
+    
+    function selectArea(area, element) {
+        selectedArea = area;
+        document.querySelectorAll('#area-selection .subject-btn').forEach(btn => btn.classList.remove('active'));
+        element.classList.add('active');
+
+        const langSection = document.getElementById('language-selection');
+        const generateBtn = document.getElementById('generate-simulado-btn');
+
+        if (area === 'Linguagens e Códigos') {
+            langSection.classList.remove('hidden');
+            generateBtn.textContent = 'Selecione a língua';
+            generateBtn.disabled = true;
+            selectedLanguage = null;
+            document.querySelectorAll('#language-buttons .subject-btn').forEach(btn => btn.classList.remove('active'));
+        } else {
+            langSection.classList.add('hidden');
+            selectedLanguage = null; 
+            generateBtn.textContent = 'Gerar Simulado';
+            generateBtn.disabled = false;
+        }
+    }
+
+    function selectLanguage(lang, element) {
+        selectedLanguage = lang;
+        document.querySelectorAll('#language-buttons .subject-btn').forEach(btn => btn.classList.remove('active'));
+        element.classList.add('active');
+
+        const generateBtn = document.getElementById('generate-simulado-btn');
+        generateBtn.textContent = 'Gerar Simulado';
+        generateBtn.disabled = false;
+    }
+
     function renderProfilePage() { const u=currentUser?currentUser.displayName:'Usuário';const e=currentUser?currentUser.email:'email@exemplo.com';const i=u.charAt(0).toUpperCase();return `<h1 class="section-title text-center md:text-left">Seu Perfil</h1><div class="card p-8 max-w-2xl mx-auto"><div class="flex flex-col items-center mb-10"><div class="w-32 h-32 md:w-40 md:h-40 bg-[#ff9100] rounded-full flex items-center justify-center text-white text-7xl font-extrabold">${i}</div></div><div class="mb-6"><label class="block text-gray-400 text-sm font-bold mb-2">Nome</label><p class="text-white text-lg">${u}</p></div><div class="mb-8"><label class="block text-gray-400 text-sm font-bold mb-2">E-mail</label><p class="text-white text-lg">${e}</p></div><button onclick="auth.signOut()" class="btn w-full bg-red-600 text-white hover:bg-red-700">Sair (Logout)</button></div>`;}
+    
     function renderMinhasProvasPage() { return `<h1 class="section-title text-center md:text-left">Minhas Provas Salvas</h1><div id="loader-provas" class="hidden text-center text-xl text-yellow-400 p-6">🔄 Carregando...</div><div id="provas-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>`; }
     
-    // --- FUNÇÕES DE DADOS (MINHAS PROVAS) ---
+    // --- STATISTICS PAGE FUNCTIONS ---
+    function renderStatisticsPage() {
+        appContent.innerHTML = `
+            <h1 class="section-title text-center md:text-left">Estatísticas de Desempenho</h1>
+            <div id="stats-content" class="card">
+                <div id="loader" class="hidden text-center p-6"><div class="loader-spinner"></div><p class="text-xl text-yellow-400 mt-4">Analisando seu desempenho...</p></div>
+                <canvas id="performanceChart"></canvas>
+            </div>`;
+        loadPerformanceData();
+    }
+    
+    async function loadPerformanceData() {
+        if (!currentUser) return;
+        const loader = document.querySelector('#stats-content #loader');
+        loader.classList.remove('hidden');
+
+        try {
+            const query = await db.collection('users').doc(currentUser.uid).collection('provas')
+                .where('status', '==', 'finalizada').get();
+            
+            if (query.empty) {
+                document.getElementById('stats-content').innerHTML = '<p class="text-center col-span-full">Nenhuma prova finalizada encontrada para gerar estatísticas. Complete um simulado para começar!</p>';
+                return;
+            }
+
+            const performanceData = {
+                'Linguagens': { totalScore: 0, totalQuestions: 0 },
+                'Ciências Humanas': { totalScore: 0, totalQuestions: 0 },
+                'Ciências da Natureza': { totalScore: 0, totalQuestions: 0 },
+                'Matemática': { totalScore: 0, totalQuestions: 0 }
+            };
+
+            const subjectToAreaMap = {
+                'Português': 'Linguagens', 'Inglês': 'Linguagens', 'Espanhol': 'Linguagens', 'Literatura': 'Linguagens', 'Linguagens e Códigos': 'Linguagens',
+                'História': 'Ciências Humanas', 'Geografia': 'Ciências Humanas', 'Filosofia': 'Ciências Humanas', 'Sociologia': 'Ciências Humanas',
+                'Física': 'Ciências da Natureza', 'Química': 'Ciências da Natureza', 'Biologia': 'Ciências da Natureza',
+                'Matemática': 'Matemática'
+            };
+
+            query.forEach(doc => {
+                const prova = doc.data();
+                
+                if (prova.materia === 'Nivelamento - Conhecimentos Gerais') {
+                    prova.questoes.forEach((q, index) => {
+                        const qAreaKey = Object.keys(subjectToAreaMap).find(key => q.materia.includes(key));
+                        const mainArea = qAreaKey ? subjectToAreaMap[qAreaKey] : null;
+                        
+                        if (mainArea && performanceData[mainArea]) {
+                            performanceData[mainArea].totalQuestions += 1;
+                            if (prova.respostaUsuario[index] === q.alternativaCorreta) {
+                                performanceData[mainArea].totalScore += 1;
+                            }
+                        }
+                    });
+                } else {
+                     const mainAreaKey = Object.keys(subjectToAreaMap).find(key => prova.materia.includes(key));
+                     const mainArea = mainAreaKey ? subjectToAreaMap[mainAreaKey] : null;
+
+                     if (mainArea && performanceData[mainArea]) {
+                        performanceData[mainArea].totalScore += prova.pontuacao;
+                        performanceData[mainArea].totalQuestions += prova.totalQuestoes;
+                    }
+                }
+            });
+
+            const labels = Object.keys(performanceData);
+            const data = labels.map(label => {
+                const areaData = performanceData[label];
+                return areaData.totalQuestions > 0 ? (areaData.totalScore / areaData.totalQuestions) * 100 : 0;
+            });
+
+            renderPerformanceChart(labels, data);
+
+        } catch (error) {
+            console.error("Erro ao carregar estatísticas: ", error);
+            showError('Erro ao carregar suas estatísticas.');
+        } finally {
+            loader.classList.add('hidden');
+        }
+    }
+    
+    function renderPerformanceChart(labels, data) {
+        const ctx = document.getElementById('performanceChart').getContext('2d');
+        if (performanceChart) {
+            performanceChart.destroy();
+        }
+        performanceChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Desempenho Médio (%)',
+                    data: data,
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.5)',
+                        'rgba(54, 162, 235, 0.5)',
+                        'rgba(255, 206, 86, 0.5)',
+                        'rgba(75, 192, 192, 0.5)',
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(75, 192, 192, 1)',
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: { color: '#e0e0e0' }
+                    },
+                    x: {
+                        ticks: { color: '#e0e0e0' }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    title: {
+                        display: true,
+                        text: 'Seu Desempenho Médio por Área de Conhecimento',
+                        color: '#ffffff',
+                        font: { size: 18 }
+                    }
+                }
+            }
+        });
+    }
+
+    // --- DATA FUNCTIONS (My Tests) ---
     async function loadUserProvas() {
         if (!currentUser) return;
         const loader = document.getElementById('loader-provas');
@@ -399,23 +940,30 @@
         if (listEl) listEl.innerHTML = '';
         try {
             const query = await db.collection('users').doc(currentUser.uid).collection('provas').orderBy('criadaEm', 'desc').get();
-            if (query.empty) { listEl.innerHTML = '<p class="text-center col-span-full card">Nenhuma prova salva encontrada. Finalize uma prova para vê-la aqui!</p>'; return; }
+            if (query.empty) {
+                listEl.innerHTML = '<p class="text-center col-span-full card">Nenhuma prova salva encontrada. Finalize uma prova para vê-la aqui!</p>';
+                return;
+            }
             let html = '';
             query.forEach(doc => {
                 const p = doc.data();
                 const date = p.criadaEm ? p.criadaEm.toDate().toLocaleDateString('pt-BR') : 'Data Indisponível';
                 const score = p.status === 'finalizada' ? `<p class="text-xl font-bold text-yellow-400">${Math.round((p.pontuacao / p.totalQuestoes) * 100)}%</p>` : `<p class="text-gray-400">Pendente</p>`;
-                const type = p.totalQuestoes === 45 ? 'Simulado' : 'Prova Rápida';
-                html += `<div class="card flex flex-col justify-between"><div><span class="text-xs font-bold uppercase tracking-wider ${type === 'Simulado' ? 'text-teal-400' : 'text-purple-400'}">${type}</span><h4 class="text-xl font-bold text-white">${p.materia}</h4><p class="text-gray-400 mb-2">${p.totalQuestoes} questões</p><p class="text-sm text-gray-500 mb-4">Criada em: ${date}</p><div class="text-center mb-4">${score}</div></div><div class="flex gap-2 mt-4"><button class="btn text-sm py-2 px-4 flex-1 bg-blue-600 hover:bg-blue-700 text-white" onclick="viewProva('${doc.id}')">Ver</button><button class="btn text-sm py-2 px-4 flex-1 bg-red-600 hover:bg-red-700 text-white" onclick="deleteProva('${doc.id}')">Excluir</button></div></div>`;
+                const type = p.materia === 'Nivelamento - Conhecimentos Gerais' ? 'Nivelamento' : (p.totalQuestoes >= 45 ? 'Simulado' : 'Prova Rápida');
+                html += `<div class="card flex flex-col justify-between"><div><span class="text-xs font-bold uppercase tracking-wider ${type === 'Simulado' ? 'text-teal-400' : type === 'Prova Rápida' ? 'text-purple-400' : 'text-indigo-400'}">${type}</span><h4 class="text-xl font-bold text-white">${p.materia}</h4><p class="text-gray-400 mb-2">${p.totalQuestoes} questões</p><p class="text-sm text-gray-500 mb-4">Criada em: ${date}</p><div class="text-center mb-4">${score}</div></div><div class="flex gap-2 mt-4"><button class="btn text-sm py-2 px-4 flex-1 bg-blue-600 hover:bg-blue-700 text-white" onclick="viewProva('${doc.id}')">Ver</button><button class="btn text-sm py-2 px-4 flex-1 bg-red-600 hover:bg-red-700 text-white" onclick="deleteProva('${doc.id}')">Excluir</button></div></div>`;
             });
             if (listEl) listEl.innerHTML = html;
-        } catch (error) { console.error("Erro ao carregar provas: ", error); showError('Erro ao carregar suas provas.'); }
-        finally { if (loader) loader.classList.add('hidden'); }
+        } catch (error) {
+            console.error("Erro ao carregar provas: ", error);
+            showError('Erro ao carregar suas provas.');
+        } finally {
+            if (loader) loader.classList.add('hidden');
+        }
     }
     
     async function viewProva(provaId) {
-        // Limpa a página atual para exibir a revisão
-        appContent.innerHTML = `<div id="loader" class="text-center text-xl text-yellow-400 p-6">🔄 Carregando revisão...</div><div id="result"></div>`;
+        appContent.innerHTML = `<div id="loader" class="hidden text-center p-6"><div class="loader-spinner"></div><p class="text-xl text-yellow-400 mt-4">Carregando revisão...</p></div><div id="result"></div>`;
+        document.getElementById('loader').classList.remove('hidden');
 
         try {
             const doc = await db.collection('users').doc(currentUser.uid).collection('provas').doc(provaId).get();
@@ -427,27 +975,22 @@
                 return;
             }
             
-            // Define o estado atual para o modo de revisão
             currentTest = { 
                 provaId, 
                 questions: prova.questoes, 
                 userAnswers: prova.respostaUsuario || [], 
-                isSubmitted: true // Força o modo de revisão
+                isSubmitted: true 
             };
-
-            // Trata provas que não foram finalizadas
+            
             if (prova.status !== 'finalizada') {
-                 // Para provas pendentes, apenas exibe a revisão sem pontuação.
                  const summaryHtml = `<div class="card p-8 text-center mb-8 bg-gray-800"><h3 class="text-3xl font-bold text-white mb-3">Revisão de Prova Pendente</h3><p class="text-gray-300">Esta prova não foi finalizada. As questões e suas respostas corretas são exibidas abaixo.</p></div>`;
                  const quizContainerHtml = `<div id="question-map-container" class="card mb-6 p-4"></div><div id="question-content-container"></div><div id="navigation-controls-container" class="mt-8 flex justify-between items-center"></div>`;
                  document.getElementById('result').innerHTML = summaryHtml + quizContainerHtml;
                  currentTest.currentQuestionIndex = 0;
                  renderCurrentQuestion();
             } else {
-                // Para provas finalizadas, mostra a pontuação e inicia a revisão interativa
                 displayReview(prova.pontuacao, true);
             }
-
         } catch (error) {
             console.error("Erro ao visualizar prova: ", error);
             showError(`Erro ao carregar prova: ${error.message}`);
@@ -459,13 +1002,19 @@
 
     async function deleteProva(provaId) {
         if (!confirm('Deseja excluir esta prova permanentemente? Esta ação não pode ser desfeita.')) return;
-        try { await db.collection('users').doc(currentUser.uid).collection('provas').doc(provaId).delete(); loadUserProvas(); }
-        catch (error) { console.error("Erro ao excluir prova: ", error); alert('Erro ao excluir a prova: ' + error.message); }
+        try {
+            await db.collection('users').doc(currentUser.uid).collection('provas').doc(provaId).delete();
+            loadUserProvas();
+        }
+        catch (error) {
+            console.error("Erro ao excluir prova: ", error);
+            alert('Erro ao excluir a prova: ' + error.message);
+        }
     }
 
     function showError(message) {
         const resultDiv = document.getElementById('result');
-        if (resultDiv && resultDiv.offsetParent !== null) { // verifica se o resultDiv está visível
+        if (resultDiv && resultDiv.offsetParent !== null) { 
              resultDiv.innerHTML = `<div class="card bg-red-800 text-white p-6 text-center">❌ ${message}</div>`;
         } else { 
             const listEl = document.getElementById('provas-list');
@@ -473,7 +1022,9 @@
         }
     }
 
-    document.addEventListener('DOMContentLoaded', () => { appContent.innerHTML = `<div class="text-center p-10 text-2xl">Carregando...</div>`; });
+    document.addEventListener('DOMContentLoaded', () => {
+        appContent.innerHTML = `<div class="text-center p-10 text-2xl">Carregando...</div>`;
+    });
 </script>
 </body>
 </html>
