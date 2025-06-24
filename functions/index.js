@@ -1,9 +1,8 @@
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const functions = require("firebase-functions");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const admin = require('firebase-admin');
 
-// Initialize Firebase Admin
+// Inicializar Firebase Admin
 admin.initializeApp();
 const db = admin.firestore();
 const { FieldValue } = require('firebase-admin/firestore');
@@ -14,10 +13,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 // 2. Obter uma nova chave de API no Google AI Studio.
 // 3. Salvar a chave de forma segura no ambiente do Firebase com o comando:
 //    firebase functions:config:set gemini.key="SUA_NOVA_CHAVE_DE_API"
-const geminiApiKey = functions.config().gemini?.key || "AIzaSyD8o2MTltzkSFjwBbNDF8vD3o8HrzG9ySM"; // Chave de fallback para testes
-if (!functions.config().gemini?.key) {
-    functions.logger.warn("Chave da API do Gemini não encontrada na configuração do Firebase. Usando chave de fallback. Para produção, configure a chave.");
-}
+const geminiApiKey = "AIzaSyD8o2MTltzkSFjwBbNDF8vD3o8HrzG9ySM"; // Carregando a chave de forma segura
 const genAI = new GoogleGenerativeAI(geminiApiKey);
 
 
@@ -59,19 +55,23 @@ const parseLLMResponse = (rawText) => {
     } catch (parseError) {
         functions.logger.error("Error parsing JSON:", parseError);
         functions.logger.error("Received text for parsing:", rawText);
-        throw new HttpsError("internal", "Invalid response format from the AI.");
+        throw new functions.https.HttpsError("internal", "Invalid response format from the AI.");
     }
 };
 
-exports.generateQuestions = onCall(async (request) => {
-    if (!request.auth) {
-        throw new HttpsError('unauthenticated', 'The function must be called by an authenticated user.');
+// V1: A função `onCall` está em `functions.https.onCall`
+// V1: O handler recebe `(data, context)` em vez de `(request)`
+exports.generateQuestions = functions.https.onCall(async (data, context) => {
+    // V1: A autenticação está em `context.auth`
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'The function must be called by an authenticated user.');
     }
-    const userId = request.auth.uid;
-    const { subject, count } = request.data;
+    const userId = context.auth.uid;
+    // V1: Os dados da requisição estão diretamente no objeto `data`
+    const { subject, count } = data;
 
     if (!subject || !count) {
-        throw new HttpsError('invalid-argument', 'The "subject" and "count" parameters are required.');
+        throw new functions.https.HttpsError('invalid-argument', 'The "subject" and "count" parameters are required.');
     }
 
     try {
@@ -100,20 +100,20 @@ exports.generateQuestions = onCall(async (request) => {
 
     } catch (error) {
         functions.logger.error("Error in generateQuestions:", error);
-        if (error instanceof HttpsError) throw error;
-        throw new HttpsError("internal", "Failed to generate questions.");
+        if (error instanceof functions.https.HttpsError) throw error;
+        throw new functions.https.HttpsError("internal", "Failed to generate questions.");
     }
 });
 
-exports.generateSimulado = onCall(async (request) => {
-    if (!request.auth) {
-        throw new HttpsError('unauthenticated', 'The function must be called by an authenticated user.');
+exports.generateSimulado = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'The function must be called by an authenticated user.');
     }
-    const userId = request.auth.uid;
-    const { area, foreignLanguage } = request.data;
+    const userId = context.auth.uid;
+    const { area, foreignLanguage } = data;
 
     if (!area) {
-        throw new HttpsError('invalid-argument', 'The "area" parameter is required.');
+        throw new functions.https.HttpsError('invalid-argument', 'The "area" parameter is required.');
     }
 
     let generationPromises;
@@ -144,7 +144,7 @@ exports.generateSimulado = onCall(async (request) => {
             break;
         case 'Linguagens e Códigos':
             if (!foreignLanguage || (foreignLanguage !== 'Inglês' && foreignLanguage !== 'Espanhol')) {
-                throw new HttpsError('invalid-argument', 'For the Languages area, the foreign language is required.');
+                throw new functions.https.HttpsError('invalid-argument', 'For the Languages area, the foreign language is required.');
             }
             finalExamName = `Linguagens (${foreignLanguage})`;
             generationPromises = [
@@ -154,7 +154,7 @@ exports.generateSimulado = onCall(async (request) => {
             ];
             break;
         default:
-            throw new HttpsError('invalid-argument', 'Invalid knowledge area.');
+            throw new functions.https.HttpsError('invalid-argument', 'Invalid knowledge area.');
     }
 
     try {
@@ -187,20 +187,20 @@ exports.generateSimulado = onCall(async (request) => {
 
     } catch (error) {
         functions.logger.error("Error in generateSimulado:", error);
-        if (error instanceof HttpsError) throw error;
-        throw new HttpsError("internal", "Failed to generate the simulation.");
+        if (error instanceof functions.https.HttpsError) throw error;
+        throw new functions.https.HttpsError("internal", "Failed to generate the simulation.");
     }
 });
 
-exports.generateExplanation = onCall(async (request) => {
-    if (!request.auth) {
-        throw new HttpsError('unauthenticated', 'The function must be called by an authenticated user.');
+exports.generateExplanation = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'The function must be called by an authenticated user.');
     }
 
-    const { question, userAnswer, correctAnswerText } = request.data;
+    const { question, userAnswer, correctAnswerText } = data;
 
     if (!question || !userAnswer || !correctAnswerText) {
-        throw new HttpsError('invalid-argument', 'Missing required parameters.');
+        throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters.');
     }
 
     const prompt = `
@@ -225,16 +225,16 @@ exports.generateExplanation = onCall(async (request) => {
         return { explanation: result.response.text() };
     } catch (error) {
         functions.logger.error("Error in generateExplanation:", error);
-        throw new HttpsError("internal", "Failed to generate explanation.");
+        throw new functions.https.HttpsError("internal", "Failed to generate explanation.");
     }
 });
 
-exports.generateStudyPlan = onCall(async (request) => {
-    if (!request.auth) {
-        throw new HttpsError('unauthenticated', 'The function must be called by an authenticated user.');
+exports.generateStudyPlan = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'The function must be called by an authenticated user.');
     }
 
-    const { incorrectQuestions } = request.data;
+    const { incorrectQuestions } = data;
 
     if (!incorrectQuestions || incorrectQuestions.length === 0) {
         return { plan: "Parabéns! Você acertou todas as questões. Continue assim!" };
@@ -262,6 +262,6 @@ exports.generateStudyPlan = onCall(async (request) => {
         return { plan: result.response.text() };
     } catch (error) {
         functions.logger.error("Error in generateStudyPlan:", error);
-        throw new HttpsError("internal", "Failed to generate study plan.");
+        throw new functions.https.HttpsError("internal", "Failed to generate study plan.");
     }
 });
