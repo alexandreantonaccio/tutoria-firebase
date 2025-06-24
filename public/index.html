@@ -1,490 +1,479 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tutoria</title>
-    <link rel="stylesheet" href="index.css" />
-    <!-- Firebase App, Auth, Functions -->
+    <title>TutorIA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #121221;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+        .container { max-width: 1200px; }
+        .card {
+            background-color: #1a1a2e;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease-in-out;
+        }
+        .card:hover { transform: translateY(-5px); }
+        .btn {
+            padding: 1rem 2.5rem; border-radius: 12px; font-weight: 700;
+            transition: background-color 0.3s ease, transform 0.3s ease;
+            text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer;
+        }
+        .btn:disabled { background-color: #3a3a5a; color: #888; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-primary {
+            background-color: #ff9100; color: white;
+            box-shadow: 0 4px 15px rgba(255, 145, 0, 0.4);
+        }
+        .btn-primary:hover:not(:disabled) { background-color: #e68200; transform: translateY(-2px); }
+        .nav-link {
+            padding: 0.75rem 1.5rem; border-radius: 10px; cursor: pointer;
+            transition: background-color 0.3s ease, color 0.3s ease, transform 0.2s ease;
+            font-weight: 600;
+        }
+        .nav-link.active, .subject-btn.active {
+            background-color: #ff9100; color: white;
+            box-shadow: 0 2px 8px rgba(255, 145, 0, 0.3);
+        }
+        .nav-link:hover:not(:active) { background-color: #2a2a4a; color: #f0f0f0; transform: translateY(-2px); }
+        .section-title { font-size: 2.5rem; font-weight: 700; color: white; margin-bottom: 2rem; }
+        .hidden { display: none; }
+
+        /* --- ESTILOS DE REVISÃO E MAPA DE QUESTÕES --- */
+        .question-map-btn {
+            width: 40px; height: 40px; border-radius: 50%;
+            display: inline-flex; align-items: center; justify-content: center;
+            background-color: #2a2a4a; color: #e0e0e0;
+            font-weight: 600; transition: all 0.2s ease;
+            border: 2px solid transparent;
+        }
+        .question-map-btn.answered { border-color: #3298Db; }
+        .question-map-btn.current { background-color: #3298Db; color: white; border-color: #3298Db; transform: scale(1.1); }
+        .question-map-btn.correct { background-color: #10b981; color: white; border-color: #10b981; }
+        .question-map-btn.incorrect { background-color: #ef4444; color: white; border-color: #ef4444; }
+
+        .review-choice { padding: 0.75rem; border-radius: 8px; border-left-width: 4px; }
+        .review-choice-label.user-correct { border-color: #10b981; background-color: rgba(16, 185, 129, 0.15); }
+        .review-choice-label.user-incorrect { border-color: #ef4444; background-color: rgba(239, 68, 68, 0.15); }
+        .review-choice-label.actual-correct { border-color: #5eead4; background-color: rgba(94, 234, 212, 0.15); font-weight: bold; }
+        .review-mode input[type="radio"] { display: none; }
+        .review-mode label { cursor: default; }
+        .correct-answer-text { color: #5eead4; font-weight: bold; }
+        
+        /* Estilos para o Timer */
+        #timer-container {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            background-color: #1a1a2e;
+            color: #ff9100;
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            z-index: 100;
+        }
+    </style>
 </head>
-<body>
-    <h1>TutorIA</h1>
+<body class="min-h-screen flex flex-col">
+
+    <header class="bg-[#1a1a2e] shadow-xl py-5 px-6 md:px-12 sticky top-0 z-50">
+        <nav class="container mx-auto flex items-center justify-between">
+            <div class="text-3xl font-extrabold text-white">Tutor<span class="text-[#ff9100]">IA</span></div>
+            <div class="hidden md:flex flex-wrap space-x-4">
+                <a id="nav-home" class="nav-link active" onclick="showPage('home')">Início</a>
+                <a id="nav-gerar-provas" class="nav-link" onclick="showPage('gerar-provas')">Gerar Provas</a>
+                <a id="nav-gerar-simulados" class="nav-link" onclick="showPage('gerar-simulados')">Gerar Simulados</a>
+                <a id="nav-minhas-provas" class="nav-link" onclick="showPage('minhas-provas')">Minhas Provas</a>
+                <a id="nav-profile" class="nav-link" onclick="showPage('profile')">Perfil</a>
+            </div>
+            <div class="md:hidden"><button class="text-white text-3xl">&#9776;</button></div>
+        </nav>
+    </header>
+
+    <main id="app-content" class="flex-1 p-6 md:p-12 container mx-auto">
+        </main>
+    <div id="timer-container" class="hidden"></div>
+
+
+<script>
+    // --- INÍCIO DA LÓGICA FIREBASE E DO APLICATIVO ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyDbzqfmNxZjuDbkCmjqrKGhB-rTRT6e3oY",
+        authDomain: "tutoria-firebase.firebaseapp.com",
+        projectId: "tutoria-firebase",
+        storageBucket: "tutoria-firebase.firebasestorage.app",
+        messagingSenderId: "1070606817177",
+        appId: "1:1070606817177:web:53a2624d04d669ff452508"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    const functions = firebase.functions();
+
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+        auth.useEmulator('http://localhost:9099/');
+        db.useEmulator('localhost', 8080);
+        functions.useEmulator('localhost', 5001);
+    }
+
+    let currentUser = null;
+    let currentTest = {};
+    let activePage = 'home';
+    let selectedSubject = null;
+    let timerInterval = null;
+
+    auth.onAuthStateChanged(async user => {
+        if (!user) { window.location.replace('login.html'); return; }
+        currentUser = user;
+        const userRef = db.collection('users').doc(user.uid);
+        const doc = await userRef.get();
+        if (!doc.exists) { await userRef.set({ nome: user.displayName || 'Usuário', email: user.email }); }
+        showPage('home');
+    });
     
-    <div id="user-info">
-        <p><strong>Usuário:</strong> <span id="user-name">Carregando...</span></p>
-        <p><strong>Email:</strong> <span id="user-email"></span></p>
-        <button id="btnLogout">Sair</button>
-    </div>
-
-    <hr>
-
-    <!-- Navegação -->
-    <div>
-        <button onclick="showTab('gerar')" id="tab-gerar-btn">Gerar Questões</button>
-        <button onclick="showTab('minhas-provas')" id="tab-provas-btn">Minhas Provas</button>
-    </div>
-
-    <hr>
-
-    <!-- Aba: Gerar Questões -->
-    <div id="tab-gerar" class="tab-content active">
-        <h2>Gerar Prova</h2>
-        
-        <div>
-            <label>Assunto:</label><br>
-            <input type="text" id="subject" placeholder="Ex: Matemática, Física, Biologia..." value="Física">
-        </div>
-        
-        <div>
-            <button onclick="callGenerateQuestions(5)">5 Questões</button>
-            <button onclick="callGenerateQuestions(10)">10 Questões</button>
-            <button onclick="callGenerateQuestions(15)">15 Questões</button>
-        </div>
-        
-        <div id="loader" class="hidden">🔄 Gerando questões... Aguarde alguns segundos.</div>
-        
-        <div id="result">
-            <p class="success">👆 Selecione um botão acima para gerar questões</p>
-        </div>
-    </div>
-
-    <!-- Aba: Minhas Provas -->
-    <div id="tab-minhas-provas" class="tab-content">
-        <h2>Minhas Provas Salvas</h2>
-        
-        <div id="loader-provas" class="hidden">🔄 Carregando provas...</div>
-        
-        <div id="provas-list">
-            <p>Carregando suas provas...</p>
-        </div>
-    </div>
-
-    <script>
-        // Configuração Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyDbzqfmNxZjuDbkCmjqrKGhB-rTRT6e3oY",
-            authDomain: "tutoria-firebase.firebaseapp.com",
-            projectId: "tutoria-firebase",
-            storageBucket: "tutoria-firebase.firebasestorage.app",
-            messagingSenderId: "1070606817177",
-            appId: "1:1070606817177:web:53a2624d04d669ff452508"
-        };
-        firebase.initializeApp(firebaseConfig);
-
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-        const functions = firebase.functions();
-        let currentTest = {
-            provaId: null,
-            questions: [],
-            isSubmitted: false
-        };
-        // Emuladores (apenas para desenvolvimento local)
-        if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-            auth.useEmulator('http://localhost:9099/');
-            db.useEmulator('localhost', 8080);
-            functions.useEmulator('localhost', 5001);
-        }
-
-        // Variável global para armazenar usuário atual
-        let currentUser = null;
-
-        // Verifica autenticação e carrega dados do usuário
-        auth.onAuthStateChanged(async user => {
-            if (!user) return window.location.replace('login.html');
-            
-            currentUser = user;
-            const userRef = db.collection('users').doc(user.uid);
-            const doc = await userRef.get();
-            if (!doc.exists) {
-                await userRef.set({ nome: user.displayName || 'Usuário', email: user.email });
+    // --- LÓGICA DO TIMER ---
+    function startTimer(durationInSeconds) {
+        const timerContainer = document.getElementById('timer-container');
+        timerContainer.classList.remove('hidden');
+        let timer = durationInSeconds;
+        timerInterval = setInterval(() => {
+            let hours = parseInt(timer / 3600, 10);
+            let minutes = parseInt((timer % 3600) / 60, 10);
+            let seconds = parseInt(timer % 60, 10);
+            hours = hours < 10 ? "0" + hours : hours;
+            minutes = minutes < 10 ? "0" + minutes : minutes;
+            seconds = seconds < 10 ? "0" + seconds : seconds;
+            timerContainer.textContent = `${hours}:${minutes}:${seconds}`;
+            if (--timer < 0) {
+                stopTimer();
+                alert("O tempo acabou! A prova será finalizada.");
+                submitTest();
             }
-            const data = (await userRef.get()).data();
-            document.getElementById('user-name').textContent = data.nome;
-            document.getElementById('user-email').textContent = data.email;
-        });
+        }, 1000);
+    }
 
-        // Logout
-        document.getElementById('btnLogout').addEventListener('click', () => {
-            auth.signOut().then(() => {
-                window.location.replace('login.html');
-            }).catch(error => {
-                console.error('Erro ao fazer logout:', error);
-            });
-        });
+    function stopTimer() {
+        clearInterval(timerInterval);
+        const timerContainer = document.getElementById('timer-container');
+        if(timerContainer) timerContainer.classList.add('hidden');
+    }
 
-        // Funções de navegação por abas
-        function showTab(tabName) {
-            // Esconder todas as abas
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
-            
-            // Mostrar aba selecionada
-            document.getElementById(`tab-${tabName}`).classList.add('active');
-            
-            // Carregar provas se necessário
-            if (tabName === 'minhas-provas') {
-                loadUserProvas();
-            }
+    // --- LÓGICA DE NAVEGAÇÃO DA PROVA ---
+    function navigateToQuestion(index) {
+        if (!currentTest.isSubmitted) saveCurrentAnswer();
+        currentTest.currentQuestionIndex = index;
+        renderCurrentQuestion();
+    }
+
+    function nextQuestion() {
+        if (currentTest.currentQuestionIndex < currentTest.questions.length - 1) {
+            navigateToQuestion(currentTest.currentQuestionIndex + 1);
         }
+    }
 
-        // MUDANÇA: Carregar provas da subcoleção do usuário
-        async function loadUserProvas() {
-            if (!currentUser) return;
+    function previousQuestion() {
+        if (currentTest.currentQuestionIndex > 0) {
+            navigateToQuestion(currentTest.currentQuestionIndex - 1);
+        }
+    }
+
+    function saveCurrentAnswer() {
+        if (currentTest.isSubmitted) return;
+        const radio = document.querySelector('input[name="current_question"]:checked');
+        if (radio) {
+            currentTest.userAnswers[currentTest.currentQuestionIndex] = radio.value;
+        }
+    }
+
+    // --- LÓGICA DE EXIBIÇÃO DA PROVA E RESULTADOS ---
+
+    function displayQuestions(questions, provaId, durationInSeconds = null) {
+        currentTest = {
+            provaId, questions, durationInSeconds,
+            userAnswers: new Array(questions.length).fill(null),
+            currentQuestionIndex: 0, isSubmitted: false
+        };
+        const quizContainerHtml = `<div id="quiz-content" class="w-full">
+            <div id="question-map-container" class="card mb-6 p-4"></div>
+            <div id="question-content-container"></div>
+            <div id="navigation-controls-container" class="mt-8 flex justify-between items-center"></div>
+        </div>`;
+        document.getElementById('result').innerHTML = quizContainerHtml;
+        renderCurrentQuestion();
+        if (durationInSeconds) {
+            startTimer(durationInSeconds);
+        }
+    }
+    
+    function renderCurrentQuestion() {
+        const { questions, userAnswers, currentQuestionIndex, isSubmitted } = currentTest;
+        const question = questions[currentQuestionIndex];
+        
+        // Renderizar Mapa de Questões
+        const mapContainer = document.getElementById('question-map-container');
+        mapContainer.innerHTML = `<div class="flex flex-wrap gap-3 justify-center">${questions.map((q, i) => {
+            let statusClass = '';
+            if (isSubmitted) {
+                const isCorrect = userAnswers[i] === q.alternativaCorreta;
+                statusClass = isCorrect ? 'correct' : 'incorrect';
+            } else {
+                statusClass = userAnswers[i] !== null ? 'answered' : '';
+            }
+            const currentClass = i === currentQuestionIndex ? 'current' : '';
+            return `<button class="question-map-btn ${currentClass} ${statusClass}" onclick="navigateToQuestion(${i})">${i + 1}</button>`;
+        }).join('')}</div>`;
+
+        // Renderizar Conteúdo da Questão
+        const questionContainer = document.getElementById('question-content-container');
+        const alternativesHtml = question.alternativas.map((alt, altIndex) => {
+            const letter = String.fromCharCode(65 + altIndex);
             
-            document.getElementById('loader-provas').classList.remove('hidden');
-            document.getElementById('provas-list').innerHTML = '';
-            
+            if (isSubmitted) {
+                const userAnswer = userAnswers[currentQuestionIndex];
+                const isCorrectAnswer = letter === question.alternativaCorreta;
+                const isUserChoice = letter === userAnswer;
+                let choiceClass = '';
+                if (isUserChoice && isCorrectAnswer) choiceClass = 'user-correct';
+                else if (isUserChoice && !isCorrectAnswer) choiceClass = 'user-incorrect';
+                else if (isCorrectAnswer) choiceClass = 'actual-correct';
+                
+                return `<div class="review-choice review-choice-label ${choiceClass}"><label for="q_${letter}">${letter}) ${alt}</label></div>`;
+            } else {
+                const isChecked = userAnswers[currentQuestionIndex] === letter;
+                return `<div class="flex items-center p-2 rounded-lg hover:bg-gray-700"><input type="radio" name="current_question" value="${letter}" id="q_${letter}" ${isChecked ? 'checked' : ''} class="mr-4 h-5 w-5"><label for="q_${letter}" class="text-gray-300 w-full cursor-pointer">${letter}) ${alt}</label></div>`;
+            }
+        }).join('');
+        
+        const reviewModeClass = isSubmitted ? 'review-mode' : '';
+        questionContainer.innerHTML = `<div class="question card ${reviewModeClass}"><h3 class="text-xl font-bold text-white mb-4">Questão ${currentQuestionIndex + 1} de ${questions.length}</h3><p class="text-gray-300 mb-5">${question.enunciado}</p><div class="space-y-3">${alternativesHtml}</div></div>`;
+
+        // Renderizar Controles de Navegação
+        const navContainer = document.getElementById('navigation-controls-container');
+        const isFirstQuestion = currentQuestionIndex === 0;
+        const isLastQuestion = currentQuestionIndex === questions.length - 1;
+
+        const prevButtonHtml = `<button class="btn bg-gray-600 hover:bg-gray-500" onclick="previousQuestion()" ${isFirstQuestion ? 'disabled' : ''}>Anterior</button>`;
+        let nextButtonHtml;
+
+        if (isSubmitted) {
+            nextButtonHtml = isLastQuestion 
+                ? `<button class="btn btn-primary" onclick="showPage('minhas-provas')">Ver Minhas Provas</button>`
+                : `<button class="btn btn-primary" onclick="nextQuestion()">Próxima Questão</button>`;
+        } else {
+            nextButtonHtml = isLastQuestion 
+                ? `<button class="btn btn-primary" onclick="submitTest()">Finalizar Prova</button>`
+                : `<button class="btn btn-primary" onclick="nextQuestion()">Próxima Questão</button>`;
+        }
+        navContainer.innerHTML = `${prevButtonHtml} ${nextButtonHtml}`;
+    }
+
+    async function submitTest() {
+        if (currentTest.isSubmitted) return;
+        if (!confirm('Tem certeza que deseja finalizar a prova?')) return;
+        
+        saveCurrentAnswer();
+        stopTimer();
+        currentTest.isSubmitted = true;
+        
+        const { questions, userAnswers, provaId } = currentTest;
+        let correctCount = 0;
+        userAnswers.forEach((answer, index) => { if (answer === questions[index].alternativaCorreta) correctCount++; });
+        
+        if (provaId && currentUser) {
             try {
-                console.log('Carregando provas para usuário:', currentUser.uid);
-                
-                // Buscar na subcoleção provas do usuário
-                const provasQuery = await db.collection('users')
-                    .doc(currentUser.uid)
-                    .collection('provas')
-                    .orderBy('criadaEm', 'desc')
-                    .get();
-                
-                console.log('Número de provas encontradas:', provasQuery.size);
-                
-                if (provasQuery.empty) {
-                    document.getElementById('provas-list').innerHTML = '<p class="success">Você ainda não tem provas salvas. Gere algumas questões primeiro!</p>';
-                    return;
-                }
-                
-                let html = '';
-                provasQuery.forEach(doc => {
-                    const prova = doc.data();
-                    console.log('Prova encontrada:', doc.id, prova);
-                    
-                    const dataFormatada = prova.criadaEm ? 
-                        prova.criadaEm.toDate().toLocaleDateString('pt-BR') : 'Data não disponível';
-                    
-                    html += `
-                        <div class="prova-item">
-                            <h4>${prova.materia} - ${prova.totalQuestoes} questões</h4>
-                            <p>Criada em: ${dataFormatada}</p>
-                            <button onclick="viewProva('${doc.id}')">Ver Questões</button>
-                            <button onclick="deleteProva('${doc.id}')">Excluir</button>
-                        </div>
-                    `;
+                await db.collection('users').doc(currentUser.uid).collection('provas').doc(provaId).update({
+                    respostaUsuario: userAnswers, pontuacao: correctCount,
+                    finalizadaEm: firebase.firestore.FieldValue.serverTimestamp(), status: 'finalizada'
                 });
-                
-                document.getElementById('provas-list').innerHTML = html;
-                
-            } catch (error) {
-                console.error('Erro ao carregar provas:', error);
-                document.getElementById('provas-list').innerHTML = '<div class="error">❌ Erro ao carregar provas: ' + error.message + '</div>';
-            } finally {
-                document.getElementById('loader-provas').classList.add('hidden');
-            }
+            } catch (error) { console.error('Erro ao salvar respostas:', error); }
+        }
+        
+        // Iniciar modo de revisão
+        displayReview(correctCount);
+    }
+
+    function displayReview(correctCount, isFromSaved = false) {
+        const { questions } = currentTest;
+        const scorePercentage = Math.round((correctCount / questions.length) * 100);
+        
+        const title = isFromSaved ? 'Resultado da Prova' : 'Prova Finalizada!';
+        const summaryHtml = `
+            <div class="card p-8 text-center mb-8 bg-indigo-900">
+                <h3 class="text-3xl font-bold text-white mb-3">${title}</h3>
+                <p class="text-2xl text-white">Você acertou <strong>${correctCount} de ${questions.length}</strong> questões.</p>
+                <p class="text-4xl font-extrabold text-[#ff9100] mt-2">${scorePercentage}%</p>
+            </div>`;
+        
+        const quizContainerHtml = `
+            <div id="question-map-container" class="card mb-6 p-4"></div>
+            <div id="question-content-container"></div>
+            <div id="navigation-controls-container" class="mt-8 flex justify-between items-center"></div>`;
+        
+        const resultContainer = document.getElementById('result');
+        if (resultContainer) {
+            resultContainer.innerHTML = summaryHtml + quizContainerHtml;
+        } else {
+            // Fallback para quando 'result' não existe (e.g., em 'minhas-provas')
+            appContent.innerHTML = `<div id="result">${summaryHtml + quizContainerHtml}</div>`;
         }
 
-        // MUDANÇA: Visualizar prova da subcoleção
-        async function viewProva(provaId) {
-            try {
-                const provaDoc = await db.collection('users')
-                    .doc(currentUser.uid)
-                    .collection('provas')
-                    .doc(provaId)
-                    .get();
-                    
-                if (!provaDoc.exists) {
-                    showError('Prova não encontrada');
-                    return;
-                }
-                
-                const prova = provaDoc.data();
-                
-                // Mudar para aba de gerar questões e mostrar as questões
-                showTab('gerar');
-                displayQuestions(prova.questoes);
-                showCorrectAnswers(prova.respostaUsuario);
-                
-            } catch (error) {
-                console.error('Erro ao visualizar prova:', error);
-                showError('Erro ao carregar prova: ' + error.message);
-            }
+        currentTest.currentQuestionIndex = 0; // Inicia a revisão da primeira questão
+        renderCurrentQuestion();
+    }
+    
+    // --- ROTEAMENTO E RENDERIZAÇÃO DE PÁGINAS ---
+    const appContent = document.getElementById('app-content');
+    const navLinks = document.querySelectorAll('.nav-link');
+    function showPage(pageName) {
+        activePage = pageName;
+        selectedSubject = null;
+        stopTimer();
+        navLinks.forEach(link => link.classList.remove('active'));
+        const currentNavLink = document.getElementById(`nav-${pageName}`);
+        if (currentNavLink) currentNavLink.classList.add('active');
+        switch (pageName) {
+            case 'home': appContent.innerHTML = renderHomePage(); break;
+            case 'gerar-provas': appContent.innerHTML = renderGerarProvasPage(); break;
+            case 'gerar-simulados': appContent.innerHTML = renderGerarSimuladosPage(); break;
+            case 'minhas-provas': appContent.innerHTML = renderMinhasProvasPage(); loadUserProvas(); break;
+            case 'profile': appContent.innerHTML = renderProfilePage(); break;
+            default: appContent.innerHTML = renderHomePage(); break;
         }
+    }
+    
+    function selectSubject(subject, element) {
+        selectedSubject = subject;
+        document.querySelectorAll('.subject-btn').forEach(btn => btn.classList.remove('active'));
+        element.classList.add('active');
+    }
 
-        // MUDANÇA: Excluir prova da subcoleção
-        async function deleteProva(provaId) {
-            if (!confirm('Tem certeza que deseja excluir esta prova?')) {
-                return;
-            }
-            
-            try {
-                await db.collection('users')
-                    .doc(currentUser.uid)
-                    .collection('provas')
-                    .doc(provaId)
-                    .delete();
-                    
-                loadUserProvas(); // Recarregar lista
-                alert('Prova excluída com sucesso!');
-            } catch (error) {
-                console.error('Erro ao excluir prova:', error);
-                alert('Erro ao excluir prova: ' + error.message);
-            }
+    async function callGenerateQuestions(count, subjectValue = null, durationInSeconds = null) {
+        const subject = subjectValue ? subjectValue : selectedSubject;
+        if (!subject) { alert('Por favor, selecione uma matéria primeiro.'); return; }
+        const currentPage = durationInSeconds ? 'gerar-simulados' : 'gerar-provas';
+        if (activePage !== currentPage) { showPage(currentPage); await new Promise(resolve => setTimeout(resolve, 50)); }
+        const allButtons = document.querySelectorAll('button');
+        allButtons.forEach(btn => btn.disabled = true);
+        document.getElementById('generation-form')?.classList.add('hidden');
+        document.getElementById('loader').classList.remove('hidden');
+        document.getElementById('result').innerHTML = '';
+        try {
+            const generateQuestions = functions.httpsCallable('generateQuestions');
+            const result = await generateQuestions({ subject, count });
+            if (result.data && result.data.questions) { displayQuestions(result.data.questions, result.data.provaId, durationInSeconds); }
+            else { throw new Error(result.data.error || 'Formato de resposta inválido.'); }
+        } catch (error) {
+            showError(`Falha ao gerar questões: ${error.message}`);
+        } finally {
+            document.getElementById('loader').classList.add('hidden');
+            allButtons.forEach(btn => btn.disabled = false);
         }
-
-        function displayQuestions(questions, provaId) {
-            if (!questions || !Array.isArray(questions) || questions.length === 0) {
-                showError('Nenhuma questão foi gerada. Por favor, tente novamente.');
-                return;
-            }
-
+    }
+    
+    // --- TEMPLATES HTML DAS PÁGINAS ---
+    function renderHomePage() { return `<section class="mb-12 text-center py-10"><h1 class="text-5xl md:text-6xl font-extrabold text-white leading-tight mb-6">Olá, ${currentUser?currentUser.displayName.split(' ')[0]:'Aluno'}!</h1><p class="text-2xl md:text-3xl text-gray-300 mb-10">Pronto para transformar seu estudo?</p><button onclick="callGenerateQuestions(10, 'Conhecimentos Gerais')" class="btn btn-primary text-xl md:text-2xl py-4 px-10">Realizar Nivelamento</button><p class="text-gray-400 mt-6 text-lg">Descubra seus pontos fortes e comece a brilhar!</p></section><section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12"><div class="card p-8 flex flex-col items-center text-center"><h2 class="text-2xl font-bold text-white mb-2">Provas Anteriores</h2><p class="text-gray-400">Acesse seu histórico completo de avaliações e progresso.</p><button class="mt-4 text-[#ff9100] hover:underline font-semibold" onclick="showPage('minhas-provas')">Ver Detalhes</button></div><div class="card p-8 flex flex-col items-center text-center"><h2 class="text-2xl font-bold text-white mb-2">Simulados ENEM</h2><p class="text-gray-400">Prepare-se com 45 questões e tempo cronometrado.</p><button class="mt-4 text-[#5eead4] hover:underline font-semibold" onclick="showPage('gerar-simulados')">Fazer Simulado</button></div><div class="card p-8 flex flex-col items-center text-center"><h2 class="text-2xl font-bold text-white mb-2">Provas Rápidas</h2><p class="text-gray-400">Crie provas personalizadas por matéria e quantidade.</p><button class="mt-4 text-[#8b5cf6] hover:underline font-semibold" onclick="showPage('gerar-provas')">Gerar Prova</button></div></section>`;}
+    function renderGerarProvasPage() { const m=['História','Geografia','Matemática','Português','Física','Biologia','Química','Filosofia','Sociologia','Inglês','Espanhol'];const b=m.map(s=>`<button class="btn subject-btn bg-[#2a2a4a] hover:bg-[#3a3a5a] text-base p-3 md:p-4" onclick="selectSubject('${s}', this)">${s}</button>`).join('');return `<h1 class="section-title text-center md:text-left">Gerar Prova Rápida</h1><div id="generation-form" class="card p-8 mb-8"><div class="mb-8"><h3 class="text-gray-300 text-lg font-semibold mb-4">1. Escolha a Matéria:</h3><div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">${b}</div></div><div><h3 class="text-gray-300 text-lg font-semibold mb-4">2. Escolha o Número de Questões:</h3><div class="flex flex-wrap gap-4"><button class="btn btn-primary" onclick="callGenerateQuestions(5)">5</button><button class="btn btn-primary" onclick="callGenerateQuestions(10)">10</button><button class="btn btn-primary" onclick="callGenerateQuestions(15)">15</button></div></div></div><div id="loader" class="hidden text-center text-xl text-yellow-400 p-6">🔄 Gerando questões... Aguarde.</div><div id="result"></div>`;}
+    function renderGerarSimuladosPage() { const areas=['Linguagens e Códigos', 'Ciências Humanas', 'Ciências da Natureza', 'Matemática']; const duration = 2.5 * 3600; const buttonsHtml = areas.map(area => `<button class="btn btn-primary text-base p-4" onclick="callGenerateQuestions(45, '${area}', ${duration})">${area}</button>`).join(''); return `<h1 class="section-title text-center md:text-left">Simulado Estilo ENEM</h1><div id="generation-form" class="card p-8 mb-8"><h3 class="text-gray-300 text-lg font-semibold mb-4">Escolha a área do conhecimento para gerar um simulado de 45 questões (2h 30min):</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4">${buttonsHtml}</div></div><div id="loader" class="hidden text-center text-xl text-yellow-400 p-6">🔄 Gerando simulado... Aguarde.</div><div id="result"></div>`;}
+    function renderProfilePage() { const u=currentUser?currentUser.displayName:'Usuário';const e=currentUser?currentUser.email:'email@exemplo.com';const i=u.charAt(0).toUpperCase();return `<h1 class="section-title text-center md:text-left">Seu Perfil</h1><div class="card p-8 max-w-2xl mx-auto"><div class="flex flex-col items-center mb-10"><div class="w-32 h-32 md:w-40 md:h-40 bg-[#ff9100] rounded-full flex items-center justify-center text-white text-7xl font-extrabold">${i}</div></div><div class="mb-6"><label class="block text-gray-400 text-sm font-bold mb-2">Nome</label><p class="text-white text-lg">${u}</p></div><div class="mb-8"><label class="block text-gray-400 text-sm font-bold mb-2">E-mail</label><p class="text-white text-lg">${e}</p></div><button onclick="auth.signOut()" class="btn w-full bg-red-600 text-white hover:bg-red-700">Sair (Logout)</button></div>`;}
+    function renderMinhasProvasPage() { return `<h1 class="section-title text-center md:text-left">Minhas Provas Salvas</h1><div id="loader-provas" class="hidden text-center text-xl text-yellow-400 p-6">🔄 Carregando...</div><div id="provas-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>`; }
+    
+    // --- FUNÇÕES DE DADOS (MINHAS PROVAS) ---
+    async function loadUserProvas() {
+        if (!currentUser) return;
+        const loader = document.getElementById('loader-provas');
+        const listEl = document.getElementById('provas-list');
+        if (loader) loader.classList.remove('hidden');
+        if (listEl) listEl.innerHTML = '';
+        try {
+            const query = await db.collection('users').doc(currentUser.uid).collection('provas').orderBy('criadaEm', 'desc').get();
+            if (query.empty) { listEl.innerHTML = '<p class="text-center col-span-full card">Nenhuma prova salva encontrada. Finalize uma prova para vê-la aqui!</p>'; return; }
             let html = '';
-            const letters = ['A', 'B', 'C', 'D', 'E'];
-            
-            // Armazenar globalmente para uso posterior
-            window.currentTest = {
-                questions: questions,
-                provaId: provaId || null
-            };
-            
-            questions.forEach((question, index) => {
-                html += `
-                    <div class="question" id="question-${index}">
-                        <h3>Questão ${index + 1}</h3>
-                        <p><strong>Enunciado:</strong> ${question.enunciado}</p>
-                        <p><strong>Alternativas:</strong></p>
-                        <form id="form-${index}">
-                `;
-                
-                question.alternativas.forEach((alt, altIndex) => {
-                    const letter = letters[altIndex];
-                    html += `
-                        <div>
-                            <input type="radio" name="q${index}" value="${letter}" id="q${index}_${letter}">
-                            <label for="q${index}_${letter}">${letter}) ${alt}</label>
-                        </div>
-                    `;
-                });
-                
-                html += `
-                        </form>
-                    </div>
-                `;
+            query.forEach(doc => {
+                const p = doc.data();
+                const date = p.criadaEm ? p.criadaEm.toDate().toLocaleDateString('pt-BR') : 'Data Indisponível';
+                const score = p.status === 'finalizada' ? `<p class="text-xl font-bold text-yellow-400">${Math.round((p.pontuacao / p.totalQuestoes) * 100)}%</p>` : `<p class="text-gray-400">Pendente</p>`;
+                const type = p.totalQuestoes === 45 ? 'Simulado' : 'Prova Rápida';
+                html += `<div class="card flex flex-col justify-between"><div><span class="text-xs font-bold uppercase tracking-wider ${type === 'Simulado' ? 'text-teal-400' : 'text-purple-400'}">${type}</span><h4 class="text-xl font-bold text-white">${p.materia}</h4><p class="text-gray-400 mb-2">${p.totalQuestoes} questões</p><p class="text-sm text-gray-500 mb-4">Criada em: ${date}</p><div class="text-center mb-4">${score}</div></div><div class="flex gap-2 mt-4"><button class="btn text-sm py-2 px-4 flex-1 bg-blue-600 hover:bg-blue-700 text-white" onclick="viewProva('${doc.id}')">Ver</button><button class="btn text-sm py-2 px-4 flex-1 bg-red-600 hover:bg-red-700 text-white" onclick="deleteProva('${doc.id}')">Excluir</button></div></div>`;
             });
-            
-            html += `
-                <div>
-                    <button id="btnSubmitTest" onclick="submitTest()">Finalizar Prova</button>
-                    <button id="btnShowAnswers" class="hidden" onclick="showCorrectAnswers()">Mostrar Gabarito</button>
-                </div>
-            `;
-            
-            document.getElementById('result').innerHTML = html;
-            currentTest = {
-            provaId: provaId || null,
-            questions: questions,
-            isSubmitted: false
-        };
+            if (listEl) listEl.innerHTML = html;
+        } catch (error) { console.error("Erro ao carregar provas: ", error); showError('Erro ao carregar suas provas.'); }
+        finally { if (loader) loader.classList.add('hidden'); }
     }
-
-         async function submitTest() {
-            
-            if (!window.currentTest || !window.currentTest.questions) {
-                showError('Nenhuma prova ativa encontrada.');
-                return;
-            }
-            
-            const questions = window.currentTest.questions;
-            const userAnswers = [];
-            let correctCount = 0;
-            
-            // Coletar respostas do usuário
-            questions.forEach((_, index) => {
-                const selected = document.querySelector(`input[name="q${index}"]:checked`);
-                const answer = selected ? selected.value : null;
-                userAnswers.push(answer);
-                console.log(userAnswers);
-                
-                // Verificar se acertou
-                if (answer === questions[index].alternativaCorreta) {
-                    correctCount++;
-                }
-            });
-            
-            // Exibir pontuação
-            const scoreElement = document.createElement('div');
-            scoreElement.className = 'results-summary';
-            scoreElement.innerHTML = `
-                <h3>Resultado da Prova</h3>
-                <p>Acertos: <strong>${correctCount} de ${questions.length}</strong></p>
-                <p>Porcentagem: <strong>${Math.round((correctCount/questions.length)*100)}%</strong></p>
-                <p>Clique em "Mostrar Gabarito" para ver as respostas corretas</p>
-            `;
-            document.getElementById('result').insertBefore(scoreElement, document.getElementById('result').firstChild);
-            
-            // Mostrar botão de gabarito
-            document.getElementById('btnSubmitTest').classList.add('hidden');
-            document.getElementById('btnShowAnswers').classList.remove('hidden');
-            
-            // Armazenar respostas no Firestore se tivermos provaId
-            if (window.currentTest.provaId && currentUser) {
-                try {
-                    await db.collection('users').doc(currentUser.uid).collection('provas')
-                        .doc(window.currentTest.provaId).update({
-                            respostaUsuario: userAnswers,
-                            pontuacao: correctCount,
-                            finalizadaEm: firebase.firestore.FieldValue.serverTimestamp(),
-                            status: 'finalizada'
-                        });
-                    console.log('Respostas salvas com sucesso!');
-                } catch (error) {
-                    console.error('Erro ao salvar respostas:', error);
-                }
-            }
-        }
-
-        function showCorrectAnswers(respostaUsuario = []) {
-  const questions = window.currentTest.questions;
-
-  questions.forEach((question, index) => {
-    const questionElement = document.getElementById(`question-${index}`);
     
-    // ➜ usa o array respostaUsuario, não o DOM
-    const userAnswer = respostaUsuario[index] ?? 'Não respondida';
+    async function viewProva(provaId) {
+        // Limpa a página atual para exibir a revisão
+        appContent.innerHTML = `<div id="loader" class="text-center text-xl text-yellow-400 p-6">🔄 Carregando revisão...</div><div id="result"></div>`;
 
-    // Marcação visual
-    if (userAnswer === question.alternativaCorreta) {
-      questionElement.classList.add('correct');
-    } else {
-      questionElement.classList.add('incorrect');
-    }
-
-    // Informações de resposta (evita duplicar se já existir)
-    if (!questionElement.querySelector('.user-answer')) {
-      const answerInfo = document.createElement('div');
-      answerInfo.className = 'user-answer';
-      answerInfo.innerHTML = `
-        <span>Sua resposta: ${userAnswer}</span>
-        <span class="correct-answer"> | Resposta correta: ${question.alternativaCorreta}</span>
-      `;
-      questionElement.appendChild(answerInfo);
-    }
-
-    // Destacar alternativa correta
-    const correctRadio = document.getElementById(`q${index}_${question.alternativaCorreta}`);
-    if (correctRadio) {
-      correctRadio.parentElement.style.color = 'green';
-      correctRadio.parentElement.style.fontWeight = 'bold';
-    }
-  });
-
-  // Esconde botão “Mostrar Gabarito”
-  document.getElementById('btnShowAnswers')?.classList.add('hidden');
-
-  // Mensagem de prova finalizada (evita duplicar)
-  if (!document.querySelector('#result .success')) {
-    const finishedMsg = document.createElement('div');
-    finishedMsg.className = 'success';
-    finishedMsg.textContent = 'Prova finalizada. As respostas foram salvas permanentemente.';
-    document.getElementById('result').prepend(finishedMsg);
-  }
-}
-
-
-        async function callGenerateQuestions(count) {
-            const subject = document.getElementById('subject').value.trim();
-
-            if (!subject) {
-                showError('Por favor, digite um assunto antes de gerar as questões.');
+        try {
+            const doc = await db.collection('users').doc(currentUser.uid).collection('provas').doc(provaId).get();
+            if (!doc.exists) throw new Error("Prova não encontrada.");
+            
+            const prova = doc.data();
+            if (!prova.questoes || prova.questoes.length === 0) {
+                showError("Não há questões para exibir para esta prova.");
                 return;
             }
             
-            const buttons = document.querySelectorAll('button');
-            buttons.forEach(btn => btn.disabled = true);
-            document.getElementById('loader').classList.remove('hidden');
-            document.getElementById('result').innerHTML = '';
+            // Define o estado atual para o modo de revisão
+            currentTest = { 
+                provaId, 
+                questions: prova.questoes, 
+                userAnswers: prova.respostaUsuario || [], 
+                isSubmitted: true // Força o modo de revisão
+            };
 
-            try {
-                // MÉTODO 1: Usando httpsCallable
-                const generateQuestions = functions.httpsCallable('generateQuestions');
-                const result = await generateQuestions({ subject, count });
-               
-                if (result.data && result.data.questions) {
-                    displayQuestions(result.data.questions, result.data.provaId);
-                    
-                    // Mostrar mensagem de sucesso
-                    if (result.data.provaId) {
-                        const successDiv = document.createElement('div');
-                        successDiv.className = 'success';
-                        successDiv.innerHTML = `✅ Questões geradas e salvas! ID da prova: ${result.data.provaId}`;
-                        document.getElementById('result').insertBefore(successDiv, document.getElementById('result').firstChild);
-                    }
-                } else {
-                    throw new Error('Formato de resposta inválido');
-                }
-
-            } catch (error) {
-                console.error('Erro ao gerar questões:', error);
-                
-                // MÉTODO 2: Fallback usando fetch direto
-                try {
-                    console.log('Tentando método alternativo...');
-                   
-                    const user = auth.currentUser;
-                    if (!user) {
-                        throw new Error('Usuário não autenticado');
-                    }
-                   
-                    const token = await user.getIdToken();
-                    const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-                    const functionUrl = isLocal ?
-                        `http://localhost:5001/tutoria-firebase/us-central1/generateQuestions` :
-                        `https://us-central1-tutoria-firebase.cloudfunctions.net/generateQuestions`;
-                   
-                    const response = await fetch(functionUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`,
-                        },
-                        body: JSON.stringify({
-                            data: { subject, count }
-                        })
-                    });
-
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-
-                    const data = await response.json();
-                   
-                    if (data.data && data.data.questions) {
-                        displayQuestions(data.data.questions);
-                        
-                        if (data.data.provaId) {
-                            const successDiv = document.createElement('div');
-                            successDiv.className = 'success';
-                            successDiv.innerHTML = `✅ Questões geradas e salvas! ID da prova: ${data.data.provaId}`;
-                            document.getElementById('result').insertBefore(successDiv, document.getElementById('result').firstChild);
-                        }
-                    } else {
-                        throw new Error('Formato de resposta inválido no método alternativo');
-                    }
-
-                } catch (fetchError) {
-                    console.error('Erro no método alternativo:', fetchError);
-                    showError(`Falha ao gerar questões. Detalhes: ${error.message || 'Erro desconhecido'}`);
-                }
-            } finally {
-                document.getElementById('loader').classList.add('hidden');
-                buttons.forEach(btn => btn.disabled = false);
+            // Trata provas que não foram finalizadas
+            if (prova.status !== 'finalizada') {
+                 // Para provas pendentes, apenas exibe a revisão sem pontuação.
+                 const summaryHtml = `<div class="card p-8 text-center mb-8 bg-gray-800"><h3 class="text-3xl font-bold text-white mb-3">Revisão de Prova Pendente</h3><p class="text-gray-300">Esta prova não foi finalizada. As questões e suas respostas corretas são exibidas abaixo.</p></div>`;
+                 const quizContainerHtml = `<div id="question-map-container" class="card mb-6 p-4"></div><div id="question-content-container"></div><div id="navigation-controls-container" class="mt-8 flex justify-between items-center"></div>`;
+                 document.getElementById('result').innerHTML = summaryHtml + quizContainerHtml;
+                 currentTest.currentQuestionIndex = 0;
+                 renderCurrentQuestion();
+            } else {
+                // Para provas finalizadas, mostra a pontuação e inicia a revisão interativa
+                displayReview(prova.pontuacao, true);
             }
-        }
 
-        function showError(message) {
-            document.getElementById('result').innerHTML = `<div class="error">❌ ${message}</div>`;
+        } catch (error) {
+            console.error("Erro ao visualizar prova: ", error);
+            showError(`Erro ao carregar prova: ${error.message}`);
+        } finally {
+            const loader = document.getElementById('loader');
+            if (loader) loader.classList.add('hidden');
         }
-    </script>
+    }
+
+    async function deleteProva(provaId) {
+        if (!confirm('Deseja excluir esta prova permanentemente? Esta ação não pode ser desfeita.')) return;
+        try { await db.collection('users').doc(currentUser.uid).collection('provas').doc(provaId).delete(); loadUserProvas(); }
+        catch (error) { console.error("Erro ao excluir prova: ", error); alert('Erro ao excluir a prova: ' + error.message); }
+    }
+
+    function showError(message) {
+        const resultDiv = document.getElementById('result');
+        if (resultDiv && resultDiv.offsetParent !== null) { // verifica se o resultDiv está visível
+             resultDiv.innerHTML = `<div class="card bg-red-800 text-white p-6 text-center">❌ ${message}</div>`;
+        } else { 
+            const listEl = document.getElementById('provas-list');
+            if(listEl) listEl.innerHTML = `<p class="text-center col-span-full card bg-red-800">${message}</p>`;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => { appContent.innerHTML = `<div class="text-center p-10 text-2xl">Carregando...</div>`; });
+</script>
 </body>
 </html>

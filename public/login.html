@@ -3,30 +3,214 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <link rel="stylesheet" href="login.css" />
   <title>Login – Tutoria</title>
-  <!-- Firebase App, Auth & Firestore -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <style>
+    /* Estilos Gerais - Adapte as cores e fontes ao seu projeto */
+    :root {
+      --cor-primaria: #007BFF;
+      --cor-secundaria: #ffffff;
+      --cor-background: #121221;
+      --cor-texto: #ff9100;
+      --cor-branco: #fff;
+      --cor-erro: #D8000C;
+      --fonte-principal: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      font-family: var(--fonte-principal);
+      background-color: var(--cor-background);
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .container {
+      background-color: #1a1a2e;
+      color: var(--cor-branco);
+      padding: 2rem 3rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    h2 {
+      color: var(--cor-texto);
+      margin-bottom: 1.5rem;
+      font-weight: 600;
+    }
+
+    .form-group {
+      margin-bottom: 1.2rem;
+      text-align: left;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: var(--cor-secundaria);
+      font-size: 0.9rem;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 0.8rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+      transition: border-color 0.3s;
+    }
+
+    .form-group input:focus {
+        outline: none;
+        border-color: var(--cor-primaria);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 0.9rem;
+      border: none;
+      border-radius: 4px;
+      color: var(--cor-branco);
+      background-color: var(--cor-primaria);
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: opacity 0.3s;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+    }
+
+    .btn-google {
+      background-color: #DB4437;
+    }
+
+    .separator {
+      display: flex;
+      align-items: center;
+      text-align: center;
+      color: var(--cor-secundaria);
+      margin: 1.5rem 0;
+    }
+
+    .separator::before,
+    .separator::after {
+      content: '';
+      flex: 1;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .separator:not(:empty)::before {
+      margin-right: .5em;
+    }
+
+    .separator:not(:empty)::after {
+      margin-left: .5em;
+    }
+
+    .toggle-form {
+      margin-top: 1.5rem;
+      font-size: 0.95rem;
+    }
+
+    .toggle-form a {
+      color: var(--cor-primaria);
+      text-decoration: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    
+    .toggle-form a:hover {
+      text-decoration: underline;
+    }
+
+    .error-message {
+        color: var(--cor-erro);
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+        border: 1px solid var(--cor-erro);
+        background-color: #FFD2D2;
+        display: none; /* Inicia oculto */
+        text-align: center;
+    }
+
+    #registerForm {
+      display: none;
+    }
+
+  </style>
 </head>
 <body>
-  <div class="login-container">
-    <h2>Entrar no Tutoria</h2>
-    <button id="btnGoogle" class="btn-google">Entrar com Google</button>
+  <div class="container">
+
+    <div id="loginForm">
+      <h2>Entrar no Tutoria</h2>
+      <div id="loginError" class="error-message"></div>
+      <form onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label for="loginEmail">E-mail</label>
+          <input type="email" id="loginEmail" required />
+        </div>
+        <div class="form-group">
+          <label for="loginPassword">Senha</label>
+          <input type="password" id="loginPassword" required />
+        </div>
+        <button type="submit" class="btn">Entrar</button>
+      </form>
+      <div class="separator">ou</div>
+      <button id="btnGoogle" class="btn btn-google">Entrar com Google</button>
+      <p class="toggle-form">
+        Não tem uma conta? <a onclick="toggleForms()">Cadastre-se</a>
+      </p>
+    </div>
+
+    <div id="registerForm">
+      <h2>Crie sua Conta</h2>
+      <div id="registerError" class="error-message"></div>
+      <form onsubmit="handleRegister(event)">
+        <div class="form-group">
+          <label for="registerName">Nome Completo</label>
+          <input type="text" id="registerName" required />
+        </div>
+        <div class="form-group">
+          <label for="registerEmail">E-mail</label>
+          <input type="email" id="registerEmail" required />
+        </div>
+        <div class="form-group">
+          <label for="registerPassword">Senha (mínimo 6 caracteres)</label>
+          <input type="password" id="registerPassword" required minlength="6"/>
+        </div>
+        <button type="submit" class="btn">Cadastrar</button>
+      </form>
+      <p class="toggle-form">
+        Já tem uma conta? <a onclick="toggleForms()">Faça Login</a>
+      </p>
+    </div>
+
   </div>
 
   <script>
-    // Firebase configuration
+    // Configuração do Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyDbzqfmNxZjuDbkCmjqrKGhB-rTRT6e3oY",
       authDomain: "tutoria-firebase.firebaseapp.com",
       projectId: "tutoria-firebase",
-      storageBucket: "tutoria-firebase.firebasestorage.app",
+      storageBucket: "tutoria-firebase.appspot.com", // Corrigido para .appspot.com
       messagingSenderId: "1070606817177",
       appId: "1:1070606817177:web:53a2624d04d669ff452508"
     };
-    // Initialize Firebase
+    // Inicializar Firebase
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
@@ -36,40 +220,128 @@
       auth.useEmulator('http://localhost:9099/');
       db.useEmulator('localhost', 8080);
     }
+    
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    const loginError = document.getElementById('loginError');
+    const registerError = document.getElementById('registerError');
 
     // Redireciona se já estiver autenticado
     auth.onAuthStateChanged(user => {
       if (user) {
-        window.location.replace('index.html');
+        window.location.replace('index.html'); // Alterado para index.html conforme seu código original
       }
     });
+    
+    // Função para criar perfil do usuário no Firestore
+    const createUserProfile = async (user, additionalData = {}) => {
+      if (!user) return;
+      const userRef = db.collection('users').doc(user.uid);
+      const snapshot = await userRef.get();
 
-    // Google Sign-In e criação de perfil no Firestore
+      if (!snapshot.exists) {
+        const { email, displayName, uid } = user;
+        const profileData = {
+          uid,
+          email,
+          nome: additionalData.nome || displayName || 'Usuário',
+          tipo: 'aluno',
+          criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+          ...additionalData
+        };
+        try {
+          await userRef.set(profileData);
+          console.log('[DEBUG] Perfil de usuário criado no Firestore');
+        } catch (error) {
+          console.error("Erro ao criar perfil de usuário:", error);
+        }
+      }
+    };
+
+    // Login com Google
     document.getElementById('btnGoogle').onclick = async () => {
       try {
         const provider = new firebase.auth.GoogleAuthProvider();
         const result = await auth.signInWithPopup(provider);
-        const user = result.user;
-
-        console.log('[DEBUG] Usuário autenticado:', user.uid);
-
-        const userRef = db.collection('users').doc(user.uid);
-        await userRef.set({
-          uid: user.uid,
-          email: user.email,
-          nome: user.displayName || null,
-          tipo: 'aluno',
-          criadoEm: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-
-        console.log('[DEBUG] Documento criado com sucesso no Firestore');
-
-        window.location.replace('index.html');
+        await createUserProfile(result.user);
+        // O onAuthStateChanged fará o redirecionamento
       } catch (error) {
-        console.error('Erro no login:', error);
-        alert('Falha ao realizar login: ' + error.message);
+        loginError.textContent = 'Falha ao fazer login com o Google. Tente novamente.';
+        loginError.style.display = 'block';
+        console.error('Erro no login com Google:', error);
       }
     };
+
+    // Login com E-mail e Senha
+    const handleLogin = async (event) => {
+        event.preventDefault();
+        loginError.style.display = 'none';
+        const email = document.getElementById('loginEmail').value;
+        const password = document.getElementById('loginPassword').value;
+
+        try {
+            await auth.signInWithEmailAndPassword(email, password);
+            // O onAuthStateChanged fará o redirecionamento
+        } catch (error) {
+            loginError.textContent = getAuthErrorMessage(error.code);
+            loginError.style.display = 'block';
+            console.error('Erro de login:', error);
+        }
+    };
+    
+    // Cadastro com E-mail e Senha
+    const handleRegister = async (event) => {
+        event.preventDefault();
+        registerError.style.display = 'none';
+        const nome = document.getElementById('registerName').value;
+        const email = document.getElementById('registerEmail').value;
+        const password = document.getElementById('registerPassword').value;
+
+        try {
+            const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+            const user = userCredential.user;
+            
+            // Atualiza o nome de exibição no perfil de autenticação
+            await user.updateProfile({
+                displayName: nome
+            });
+
+            // Cria o documento do usuário no Firestore
+            await createUserProfile(user, { nome });
+            // O onAuthStateChanged fará o redirecionamento
+        } catch (error) {
+            registerError.textContent = getAuthErrorMessage(error.code);
+            registerError.style.display = 'block';
+            console.error('Erro de registro:', error);
+        }
+    };
+    
+    // Função para alternar entre formulários de login e cadastro
+    const toggleForms = () => {
+        loginError.style.display = 'none';
+        registerError.style.display = 'none';
+        const isLoginVisible = loginForm.style.display !== 'none';
+        loginForm.style.display = isLoginVisible ? 'none' : 'block';
+        registerForm.style.display = isLoginVisible ? 'block' : 'none';
+    };
+
+    // Função para traduzir códigos de erro do Firebase
+    const getAuthErrorMessage = (errorCode) => {
+        switch (errorCode) {
+            case 'auth/user-not-found':
+            case 'auth/wrong-password':
+                return 'E-mail ou senha inválidos.';
+            case 'auth/invalid-email':
+                return 'O formato do e-mail é inválido.';
+            case 'auth/email-already-in-use':
+                return 'Este e-mail já está cadastrado.';
+            case 'auth/weak-password':
+                return 'A senha é muito fraca. Use pelo menos 6 caracteres.';
+            default:
+                return 'Ocorreu um erro. Tente novamente.';
+        }
+    };
+
   </script>
 </body>
 </html>
