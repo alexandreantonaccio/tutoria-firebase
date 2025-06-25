@@ -62,15 +62,15 @@
         .sidebar {
             position: fixed;
             top: 0;
-            left: 0;
+            right: 0;
             height: 100%;
             width: 280px;
             background-color: #1a1a2e;
             padding: 2rem;
             z-index: 1000;
-            transform: translateX(-100%);
+            transform: translateX(100%);
             transition: transform 0.3s ease-in-out;
-            box-shadow: 5px 0 15px rgba(0,0,0,0.2);
+            box-shadow: -5px 0 15px rgba(0,0,0,0.2);
         }
         .sidebar.active {
             transform: translateX(0);
@@ -106,7 +106,6 @@
             color: #e0e0e0;
             cursor: pointer;
         }
-
 
         /* --- Test review and question map styles --- */
         .question-map-btn {
@@ -165,6 +164,26 @@
             margin-top: 1.5rem;
             border-radius: 0 8px 8px 0;
         }
+
+        /* --- CSS PURO PARA MENU RESPONSIVO (SEÇÃO MODIFICADA) --- */
+        .nav-links-desktop {
+            display: flex; /* Começa visível em telas grandes */
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        .menu-button-mobile {
+            display: none; /* Começa escondido em telas grandes */
+        }
+
+        /* Media Query: Aplica estilos em telas com 1026px ou menos de largura */
+        @media only screen and (max-width: 1026px) {
+            .nav-links-desktop {
+                display: none; /* Esconde os links */
+            }
+            .menu-button-mobile {
+                display: block; /* Mostra o botão de menu */
+            }
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -183,8 +202,13 @@
 
     <header class="bg-[#1a1a2e] shadow-xl py-5 px-6 md:px-12 sticky top-0 z-50">
         <nav class="container mx-auto flex items-center justify-between">
-            <div class="text-3xl font-extrabold text-white">Tutor<span class="text-[#ff9100]">IA</span></div>
-            <div class="hidden md:flex flex-wrap space-x-4">
+            <div class="flex items-center space-x-2">
+                <span class="text-3xl font-extrabold text-white">Tutor<span class="text-[#ff9100]">IA</span></span>
+                <img src="image/logo.jpeg" alt="Logo TutorIA" class="h-10 w-auto">
+            </div>
+            
+            <!-- Links de Navegação para Desktop (com classes customizadas) -->
+            <div class="nav-links-desktop">
                 <a id="nav-home" class="nav-link active" onclick="showPage('home')">Início</a>
                 <a id="nav-gerar-provas" class="nav-link" onclick="showPage('gerar-provas')">Gerar Provas</a>
                 <a id="nav-estatisticas" class="nav-link" onclick="showPage('estatisticas')">Estatísticas</a>
@@ -192,7 +216,11 @@
                 <a id="nav-minhas-provas" class="nav-link" onclick="showPage('minhas-provas')">Minhas Provas</a>
                 <a id="nav-profile" class="nav-link" onclick="showPage('profile')">Perfil</a>
             </div>
-            <div class="md:hidden"><button class="text-white text-3xl" onclick="toggleSidebar()">&#9776;</button></div>
+            
+            <!-- Botão de Menu para Mobile (com classes customizadas) -->
+            <div class="menu-button-mobile">
+                <button class="text-white text-3xl" onclick="toggleSidebar()">&#9776;</button>
+            </div>
         </nav>
     </header>
 
@@ -235,11 +263,14 @@
 
     // --- AUTHENTICATION ---
     auth.onAuthStateChanged(async user => {
-        const navContainer = document.querySelector('header nav > div.hidden.md\\:flex');
+        const navContainer = document.querySelector('.nav-links-desktop'); // Seletor ATUALIZADO
         const appContent = document.getElementById('app-content');
 
         if (!user) {
-            if (navContainer) navContainer.style.display = 'none'; 
+            if (navContainer) {
+                // A visibilidade agora é controlada pela media query, mas podemos garantir que está escondido.
+                navContainer.style.display = 'none';
+            }
             if (appContent) {
                 appContent.innerHTML = `
                     <div class="card text-center max-w-lg mx-auto">
@@ -253,8 +284,12 @@
             }
             return;
         }
+        
+        if (navContainer) {
+             // Deixa o CSS controlar a visibilidade, mas garante o display 'flex' quando visível.
+            navContainer.style.display = ''; 
+        }
 
-        if (navContainer) navContainer.style.display = 'flex';
         currentUser = user;
         const userRef = db.collection('users').doc(user.uid);
         const doc = await userRef.get();
@@ -417,7 +452,7 @@
 
         const navContainer = document.getElementById('navigation-controls-container');
         const isFirstQuestion = currentQuestionIndex === 0;
-        const isLastQuestion = currentQuestionIndex === questions.length - 1;
+        const isLastQuestion = currentTest.questions.length - 1;
 
         const prevButtonHtml = `<button class="btn bg-gray-600 hover:bg-gray-500" onclick="previousQuestion()" ${isFirstQuestion ? 'disabled' : ''}>Anterior</button>`;
         let nextButtonHtml;
