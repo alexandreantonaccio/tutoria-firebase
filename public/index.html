@@ -128,11 +128,7 @@
         .review-mode label { cursor: default; }
         .correct-answer-text { color: #5eead4; font-weight: bold; }
         
-        /* --- Timer styles --- */
         #timer-container {
-            position: fixed;
-            top: 100px;
-            right: 20px;
             background-color: #1a1a2e;
             color: #ff9100;
             padding: 10px 20px;
@@ -140,7 +136,8 @@
             font-size: 1.5rem;
             font-weight: 700;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            z-index: 100;
+            width: fit-content;
+            margin: 0 auto 1rem auto;
         }
 
         /* --- New Loader Animation --- */
@@ -175,7 +172,6 @@
             display: none; /* Começa escondido em telas grandes */
         }
 
-        /* Media Query: Aplica estilos em telas com 1026px ou menos de largura */
         @media only screen and (max-width: 1026px) {
             .nav-links-desktop {
                 display: none; /* Esconde os links */
@@ -202,12 +198,11 @@
 
     <header class="bg-[#1a1a2e] shadow-xl py-5 px-6 md:px-12 sticky top-0 z-50">
         <nav class="container mx-auto flex items-center justify-between">
-            <div class="flex items-center space-x-2">
+            <a onclick="showPage('home')" class="flex items-center space-x-2 cursor-pointer">
+                <img src="image/logo.png" alt="Logo TutorIA" class="h-10 w-auto">
                 <span class="text-3xl font-extrabold text-white">Tutor<span class="text-[#ff9100]">IA</span></span>
-                <img src="image/logo.jpeg" alt="Logo TutorIA" class="h-10 w-auto">
-            </div>
+            </a>
             
-            <!-- Links de Navegação para Desktop (com classes customizadas) -->
             <div class="nav-links-desktop">
                 <a id="nav-home" class="nav-link active" onclick="showPage('home')">Início</a>
                 <a id="nav-gerar-provas" class="nav-link" onclick="showPage('gerar-provas')">Gerar Provas</a>
@@ -217,7 +212,6 @@
                 <a id="nav-profile" class="nav-link" onclick="showPage('profile')">Perfil</a>
             </div>
             
-            <!-- Botão de Menu para Mobile (com classes customizadas) -->
             <div class="menu-button-mobile">
                 <button class="text-white text-3xl" onclick="toggleSidebar()">&#9776;</button>
             </div>
@@ -227,8 +221,6 @@
     <main id="app-content" class="flex-1 p-6 md:p-12 container mx-auto">
         <!-- Content will be rendered here by JavaScript -->
     </main>
-    <div id="timer-container" class="hidden"></div>
-
 
 <script>
     // --- START OF FIREBASE AND APP LOGIC ---
@@ -255,20 +247,19 @@
     let currentUser = null;
     let currentTest = {};
     let activePage = 'home';
-    let selectedSubject = null; // For regular tests
-    let selectedArea = null; // For ENEM simulations
-    let selectedLanguage = null; // For ENEM-Linguagens
+    let selectedSubject = null; 
+    let selectedArea = null; 
+    let selectedLanguage = null;
     let timerInterval = null;
-    let performanceChart = null; // To hold the chart instance
+    let performanceChart = null; 
 
     // --- AUTHENTICATION ---
     auth.onAuthStateChanged(async user => {
-        const navContainer = document.querySelector('.nav-links-desktop'); // Seletor ATUALIZADO
+        const navContainer = document.querySelector('.nav-links-desktop'); 
         const appContent = document.getElementById('app-content');
 
         if (!user) {
             if (navContainer) {
-                // A visibilidade agora é controlada pela media query, mas podemos garantir que está escondido.
                 navContainer.style.display = 'none';
             }
             if (appContent) {
@@ -286,7 +277,6 @@
         }
         
         if (navContainer) {
-             // Deixa o CSS controlar a visibilidade, mas garante o display 'flex' quando visível.
             navContainer.style.display = ''; 
         }
 
@@ -368,16 +358,17 @@
     }
 
     // --- TEST DISPLAY AND REVIEW LOGIC ---
-    function displayQuestions(questions, provaId, durationInSeconds = null) {
+    function displayQuestions(questions, provaId, durationInSeconds = null, savedAnswers = null) {
         currentTest = {
             provaId,
             questions,
             durationInSeconds,
-            userAnswers: new Array(questions.length).fill(null),
+            userAnswers: savedAnswers || new Array(questions.length).fill(null),
             currentQuestionIndex: 0,
             isSubmitted: false
         };
         const quizContainerHtml = `<div id="quiz-content" class="w-full">
+            <div id="timer-container" class="hidden"></div>
             <div id="question-map-container" class="card mb-6 p-4"></div>
             <div id="question-content-container"></div>
             <div id="navigation-controls-container" class="mt-8 flex justify-between items-center"></div>
@@ -452,7 +443,7 @@
 
         const navContainer = document.getElementById('navigation-controls-container');
         const isFirstQuestion = currentQuestionIndex === 0;
-        const isLastQuestion = currentTest.questions.length - 1;
+        const isLastQuestion = currentQuestionIndex === currentTest.questions.length - 1;
 
         const prevButtonHtml = `<button class="btn bg-gray-600 hover:bg-gray-500" onclick="previousQuestion()" ${isFirstQuestion ? 'disabled' : ''}>Anterior</button>`;
         let nextButtonHtml;
@@ -495,16 +486,28 @@
         displayReview(correctCount);
     }
 
-    function displayReview(correctCount, isFromSaved = false) {
+    // --- MODIFICADO: Adicionado parâmetro 'durationMillis' ---
+    function displayReview(correctCount, isFromSaved = false, durationMillis = null) {
         const { questions } = currentTest;
         const scorePercentage = Math.round((correctCount / questions.length) * 100);
         
         const title = isFromSaved ? 'Resultado da Prova' : 'Prova Finalizada!';
+
+        // --- MODIFICADO: Lógica para exibir o tempo de prova ---
+        let durationHtml = '';
+        if (durationMillis) {
+            const totalSeconds = Math.floor(durationMillis / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            durationHtml = `<p class="text-lg text-gray-300 mt-4">Tempo de Prova: <strong>${minutes}m ${seconds.toString().padStart(2, '0')}s</strong></p>`;
+        }
+
         const summaryHtml = `
             <div class="card p-8 text-center mb-8 bg-indigo-900">
                 <h3 class="text-3xl font-bold text-white mb-3">${title}</h3>
                 <p class="text-2xl text-white">Você acertou <strong>${correctCount} de ${questions.length}</strong> questões.</p>
                 <p class="text-4xl font-extrabold text-[#ff9100] mt-2">${scorePercentage}%</p>
+                ${durationHtml}
             </div>`;
         
         const quizContainerHtml = `
@@ -754,7 +757,7 @@
     function renderGerarProvasPage() {
         const m = ['História','Geografia','Matemática','Português','Física','Biologia','Química','Filosofia','Sociologia','Inglês','Espanhol'];
         const b = m.map(s => `<button class="btn subject-btn bg-[#2a2a4a] hover:bg-[#3a3a5a] text-base p-3 md:p-4" onclick="selectSubject('${s}', this)">${s}</button>`).join('');
-        return `<h1 class="section-title text-center md:text-left">Gerar Prova Rápida</h1><div id="generation-form" class="card p-8 mb-8"><div class="mb-8"><h3 class="text-gray-300 text-lg font-semibold mb-4">1. Escolha a Matéria:</h3><div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">${b}</div></div><div><h3 class="text-gray-300 text-lg font-semibold mb-4">2. Escolha o Número de Questões:</h3><div class="flex flex-wrap gap-4"><button class="btn btn-primary" onclick="callGenerateQuestions(5)">5</button><button class="btn btn-primary" onclick="callGenerateQuestions(10)">10</button><button class="btn btn-primary" onclick="callGenerateQuestions(15)">15</button></div></div></div><div id="loader" class="hidden text-center p-6"><div class="loader-spinner"></div><p class="text-xl text-yellow-400 mt-4">Gerando questões, por favor aguarde...</p></div><div id="result"></div>`;
+        return `<h1 class="section-title text-center md:text-left">Gerar Prova Rápida</h1><div id="generation-form" class="card p-8 mb-8"><div class="mb-8"><h3 class="text-gray-300 text-lg font-semibold mb-4"> Escolha a Matéria:</h3><div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">${b}</div></div><div><h3 class="text-gray-300 text-lg font-semibold mb-4">Escolha o Número de Questões:</h3><div class="flex flex-wrap gap-4"><button class="btn btn-primary" onclick="callGenerateQuestions(5)">5</button><button class="btn btn-primary" onclick="callGenerateQuestions(10)">10</button><button class="btn btn-primary" onclick="callGenerateQuestions(15)">15</button></div></div></div><div id="loader" class="hidden text-center p-6"><div class="loader-spinner"></div><p class="text-xl text-yellow-400 mt-4">Gerando questões, por favor aguarde...</p></div><div id="result"></div>`;
     }
 
     function selectSubject(subject, element) {
@@ -771,12 +774,12 @@
             <h1 class="section-title text-center md:text-left">Simulado Estilo ENEM</h1>
             <div id="generation-form" class="card p-8 mb-8 space-y-8">
                 <div>
-                    <h3 class="text-gray-300 text-lg font-semibold mb-4">1. Escolha a Área do Conhecimento:</h3>
+                    <h3 class="text-gray-300 text-lg font-semibold mb-4"> Escolha a Área do Conhecimento:</h3>
                     <div id="area-selection" class="grid grid-cols-1 md:grid-cols-2 gap-4">${areaButtons}</div>
                 </div>
 
                 <div id="language-selection" class="hidden">
-                    <h3 class="text-gray-300 text-lg font-semibold mb-4">2. Escolha a Língua Estrangeira:</h3>
+                    <h3 class="text-gray-300 text-lg font-semibold mb-4"> Escolha a Língua Estrangeira:</h3>
                     <div id="language-buttons" class="flex flex-wrap gap-4">
                         <button class="btn subject-btn bg-[#2a2a4a] hover:bg-[#3a3a5a]" onclick="selectLanguage('Inglês', this)">Inglês</button>
                         <button class="btn subject-btn bg-[#2a2a4a] hover:bg-[#3a3a5a]" onclick="selectLanguage('Espanhol', this)">Espanhol</button>
@@ -784,7 +787,7 @@
                 </div>
 
                 <div>
-                    <h3 class="text-gray-300 text-lg font-semibold mb-4">3. Gerar Simulado</h3>
+                    <h3 class="text-gray-300 text-lg font-semibold mb-4"> Gerar Simulado</h3>
                     <p class="text-gray-400 mb-4">Será gerado um simulado de 45 questões com duração de 2h 30min.</p>
                     <button id="generate-simulado-btn" class="btn btn-primary w-full md:w-auto" onclick="callGenerateEnemSimulado()" disabled>Selecione uma área para começar</button>
                 </div>
@@ -967,6 +970,7 @@
     }
 
     // --- DATA FUNCTIONS (My Tests) ---
+    // --- MODIFICADO: Alterado texto e cor do botão com base no status da prova ---
     async function loadUserProvas() {
         if (!currentUser) return;
         const loader = document.getElementById('loader-provas');
@@ -983,9 +987,15 @@
             query.forEach(doc => {
                 const p = doc.data();
                 const date = p.criadaEm ? p.criadaEm.toDate().toLocaleDateString('pt-BR') : 'Data Indisponível';
-                const score = p.status === 'finalizada' ? `<p class="text-xl font-bold text-yellow-400">${Math.round((p.pontuacao / p.totalQuestoes) * 100)}%</p>` : `<p class="text-gray-400">Pendente</p>`;
+                const isFinished = p.status === 'finalizada';
+
+                const score = isFinished ? `<p class="text-xl font-bold text-yellow-400">${Math.round((p.pontuacao / p.totalQuestoes) * 100)}%</p>` : `<p class="text-gray-400">Pendente</p>`;
                 const type = p.materia === 'Nivelamento - Conhecimentos Gerais' ? 'Nivelamento' : (p.totalQuestoes >= 45 ? 'Simulado' : 'Prova Rápida');
-                html += `<div class="card flex flex-col justify-between"><div><span class="text-xs font-bold uppercase tracking-wider ${type === 'Simulado' ? 'text-teal-400' : type === 'Prova Rápida' ? 'text-purple-400' : 'text-indigo-400'}">${type}</span><h4 class="text-xl font-bold text-white">${p.materia}</h4><p class="text-gray-400 mb-2">${p.totalQuestoes} questões</p><p class="text-sm text-gray-500 mb-4">Criada em: ${date}</p><div class="text-center mb-4">${score}</div></div><div class="flex gap-2 mt-4"><button class="btn text-sm py-2 px-4 flex-1 bg-blue-600 hover:bg-blue-700 text-white" onclick="viewProva('${doc.id}')">Ver</button><button class="btn text-sm py-2 px-4 flex-1 bg-red-600 hover:bg-red-700 text-white" onclick="deleteProva('${doc.id}')">Excluir</button></div></div>`;
+                
+                const actionButtonText = isFinished ? 'Revisar' : 'Continuar';
+                const actionButtonColor = isFinished ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700';
+
+                html += `<div class="card flex flex-col justify-between"><div><span class="text-xs font-bold uppercase tracking-wider ${type === 'Simulado' ? 'text-teal-400' : type === 'Prova Rápida' ? 'text-purple-400' : 'text-indigo-400'}">${type}</span><h4 class="text-xl font-bold text-white">${p.materia}</h4><p class="text-gray-400 mb-2">${p.totalQuestoes} questões</p><p class="text-sm text-gray-500 mb-4">Criada em: ${date}</p><div class="text-center mb-4">${score}</div></div><div class="flex gap-2 mt-4"><button class="btn text-sm py-2 px-4 flex-1 ${actionButtonColor} text-white" onclick="viewProva('${doc.id}')">${actionButtonText}</button><button class="btn text-sm py-2 px-4 flex-1 bg-red-600 hover:bg-red-700 text-white" onclick="deleteProva('${doc.id}')">Excluir</button></div></div>`;
             });
             if (listEl) listEl.innerHTML = html;
         } catch (error) {
@@ -996,8 +1006,9 @@
         }
     }
     
+    // --- MODIFICADO: Lógica para continuar prova pendente ou revisar prova finalizada ---
     async function viewProva(provaId) {
-        appContent.innerHTML = `<div id="loader" class="hidden text-center p-6"><div class="loader-spinner"></div><p class="text-xl text-yellow-400 mt-4">Carregando revisão...</p></div><div id="result"></div>`;
+        appContent.innerHTML = `<div id="loader" class="text-center p-6"><div class="loader-spinner"></div><p class="text-xl text-yellow-400 mt-4">Carregando prova...</p></div><div id="result"></div>`;
         document.getElementById('loader').classList.remove('hidden');
 
         try {
@@ -1010,21 +1021,30 @@
                 return;
             }
             
-            currentTest = { 
-                provaId, 
-                questions: prova.questoes, 
-                userAnswers: prova.respostaUsuario || [], 
-                isSubmitted: true 
-            };
-            
-            if (prova.status !== 'finalizada') {
-                 const summaryHtml = `<div class="card p-8 text-center mb-8 bg-gray-800"><h3 class="text-3xl font-bold text-white mb-3">Revisão de Prova Pendente</h3><p class="text-gray-300">Esta prova não foi finalizada. As questões e suas respostas corretas são exibidas abaixo.</p></div>`;
-                 const quizContainerHtml = `<div id="question-map-container" class="card mb-6 p-4"></div><div id="question-content-container"></div><div id="navigation-controls-container" class="mt-8 flex justify-between items-center"></div>`;
-                 document.getElementById('result').innerHTML = summaryHtml + quizContainerHtml;
-                 currentTest.currentQuestionIndex = 0;
-                 renderCurrentQuestion();
+            if (prova.status === 'finalizada') {
+                // Lógica para REVISAR prova
+                currentTest = { 
+                    provaId, 
+                    questions: prova.questoes, 
+                    userAnswers: prova.respostaUsuario || [], 
+                    isSubmitted: true 
+                };
+
+                let durationMillis = null;
+                if (prova.finalizadaEm && prova.criadaEm) {
+                    durationMillis = prova.finalizadaEm.toMillis() - prova.criadaEm.toMillis();
+                }
+                
+                displayReview(prova.pontuacao, true, durationMillis);
+
             } else {
-                displayReview(prova.pontuacao, true);
+                // Lógica para CONTINUAR prova
+                displayQuestions(
+                    prova.questoes, 
+                    provaId, 
+                    prova.durationInSeconds || null, 
+                    prova.respostaUsuario || null
+                );
             }
         } catch (error) {
             console.error("Erro ao visualizar prova: ", error);

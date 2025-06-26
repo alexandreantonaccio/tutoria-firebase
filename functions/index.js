@@ -75,7 +75,7 @@ exports.generateQuestions = functions.https.onCall(async (data, context) => {
     }
 
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
         const prompt = createPrompt(count, subject);
 
         const result = await model.generateContent(prompt);
@@ -120,7 +120,7 @@ exports.generateSimulado = functions.https.onCall(async (data, context) => {
     let finalExamName = area;
     let isNivelamento = false;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     switch (area) {
         case 'Conhecimentos Gerais':
@@ -220,7 +220,7 @@ exports.generateExplanation = functions.https.onCall(async (data, context) => {
     `;
 
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
         const result = await model.generateContent(prompt);
         return { explanation: result.response.text() };
     } catch (error) {
@@ -235,10 +235,6 @@ exports.generateStudyPlan = functions.https.onCall(async (data, context) => {
     }
 
     const { incorrectQuestions } = data;
-
-    if (!incorrectQuestions || incorrectQuestions.length === 0) {
-        return { plan: "Parabéns! Você acertou todas as questões. Continue assim!" };
-    }
 
     const topicSummary = incorrectQuestions.map(q => `- Matéria: ${q.materia}, Assunto: ${q.assunto}`).join('\n');
 
@@ -257,7 +253,7 @@ exports.generateStudyPlan = functions.https.onCall(async (data, context) => {
     `;
 
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
         const result = await model.generateContent(prompt);
         return { plan: result.response.text() };
     } catch (error) {
