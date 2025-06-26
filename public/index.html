@@ -172,7 +172,7 @@
             display: none; /* Começa escondido em telas grandes */
         }
 
-        @media only screen and (max-width: 1026px) {
+        @media only screen and (max-width: 1300px) {
             .nav-links-desktop {
                 display: none; /* Esconde os links */
             }
@@ -189,11 +189,12 @@
         <span class="close-sidebar-btn" onclick="toggleSidebar()">&times;</span>
         <div class="text-2xl font-extrabold text-white mb-8">Tutor<span class="text-[#ff9100]">IA</span></div>
         <a id="sidebar-nav-home" class="nav-link" onclick="handleNavClick('home')">Início</a>
-        <a id="sidebar-nav-gerar-provas" class="nav-link" onclick="handleNavClick('gerar-provas')">Gerar Provas</a>
         <a id="sidebar-nav-estatisticas" class="nav-link" onclick="handleNavClick('estatisticas')">Estatísticas</a>
+        <a id="sidebar-nav-gerar-provas" class="nav-link" onclick="handleNavClick('gerar-provas')">Gerar Provas</a>
         <a id="sidebar-nav-gerar-simulados" class="nav-link" onclick="handleNavClick('gerar-simulados')">Gerar Simulados</a>
         <a id="sidebar-nav-minhas-provas" class="nav-link" onclick="handleNavClick('minhas-provas')">Minhas Provas</a>
         <a id="sidebar-nav-profile" class="nav-link" onclick="handleNavClick('profile')">Perfil</a>
+         <a id="sidebar-nav-sobre" class="nav-link" onclick="handleNavClick('sobre')">Sobre Nós</a>
     </div>
 
     <header class="bg-[#1a1a2e] shadow-xl py-5 px-6 md:px-12 sticky top-0 z-50">
@@ -205,11 +206,12 @@
             
             <div class="nav-links-desktop">
                 <a id="nav-home" class="nav-link active" onclick="showPage('home')">Início</a>
-                <a id="nav-gerar-provas" class="nav-link" onclick="showPage('gerar-provas')">Gerar Provas</a>
                 <a id="nav-estatisticas" class="nav-link" onclick="showPage('estatisticas')">Estatísticas</a>
+                <a id="nav-gerar-provas" class="nav-link" onclick="showPage('gerar-provas')">Gerar Provas</a>
                 <a id="nav-gerar-simulados" class="nav-link" onclick="showPage('gerar-simulados')">Gerar Simulados</a>
                 <a id="nav-minhas-provas" class="nav-link" onclick="showPage('minhas-provas')">Minhas Provas</a>
                 <a id="nav-profile" class="nav-link" onclick="showPage('profile')">Perfil</a>
+                <a id="nav-sobre" class="nav-link" onclick="showPage('sobre')">Sobre Nós</a>
             </div>
             
             <div class="menu-button-mobile">
@@ -553,6 +555,7 @@
             case 'gerar-simulados': appContent.innerHTML = renderGerarSimuladosPage(); break;
             case 'minhas-provas': appContent.innerHTML = renderMinhasProvasPage(); loadUserProvas(); break;
             case 'profile': appContent.innerHTML = renderProfilePage(); break;
+            case 'sobre': appContent.innerHTML = renderSobrePage(); break;
             default: appContent.innerHTML = renderHomePage(); break;
         }
     }
@@ -757,7 +760,7 @@
     function renderGerarProvasPage() {
         const m = ['História','Geografia','Matemática','Português','Física','Biologia','Química','Filosofia','Sociologia','Inglês','Espanhol'];
         const b = m.map(s => `<button class="btn subject-btn bg-[#2a2a4a] hover:bg-[#3a3a5a] text-base p-3 md:p-4" onclick="selectSubject('${s}', this)">${s}</button>`).join('');
-        return `<h1 class="section-title text-center md:text-left">Gerar Prova Rápida</h1><div id="generation-form" class="card p-8 mb-8"><div class="mb-8"><h3 class="text-gray-300 text-lg font-semibold mb-4"> Escolha a Matéria:</h3><div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">${b}</div></div><div><h3 class="text-gray-300 text-lg font-semibold mb-4">Escolha o Número de Questões:</h3><div class="flex flex-wrap gap-4"><button class="btn btn-primary" onclick="callGenerateQuestions(5)">5</button><button class="btn btn-primary" onclick="callGenerateQuestions(10)">10</button><button class="btn btn-primary" onclick="callGenerateQuestions(15)">15</button></div></div></div><div id="loader" class="hidden text-center p-6"><div class="loader-spinner"></div><p class="text-xl text-yellow-400 mt-4">Gerando questões, por favor aguarde...</p></div><div id="result"></div>`;
+        return `<h1 class="section-title text-center md:text-left">Prova Rápida</h1><div id="generation-form" class="card p-8 mb-8"><div class="mb-8"><h3 class="text-gray-300 text-lg font-semibold mb-4"> Escolha a Matéria:</h3><div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">${b}</div></div><div><h3 class="text-gray-300 text-lg font-semibold mb-4">Escolha o Número de Questões:</h3><div class="flex flex-wrap gap-4"><button class="btn btn-primary" onclick="callGenerateQuestions(5)">5</button><button class="btn btn-primary" onclick="callGenerateQuestions(10)">10</button><button class="btn btn-primary" onclick="callGenerateQuestions(15)">15</button></div></div></div><div id="loader" class="hidden text-center p-6"><div class="loader-spinner"></div><p class="text-xl text-yellow-400 mt-4">Gerando questões, por favor aguarde...</p></div><div id="result"></div>`;
     }
 
     function selectSubject(subject, element) {
@@ -833,6 +836,31 @@
     
     function renderMinhasProvasPage() { return `<h1 class="section-title text-center md:text-left">Minhas Provas Salvas</h1><div id="loader-provas" class="hidden text-center text-xl text-yellow-400 p-6">🔄 Carregando...</div><div id="provas-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>`; }
     
+     function renderSobrePage() {
+        return `
+            <section class="mb-12">
+                <h1 class="section-title text-center md:text-left">Sobre Nós</h1>
+                <div class="card p-8 md:p-10">
+                    <p class="text-gray-300 mb-4 text-lg">
+                        O <strong>TutorIA</strong> é uma startup educacional desenvolvida durante a disciplina de Sistemas Distribuídos (2025), com o propósito de inovar a forma como estudantes se preparam para provas importantes, como o ENEM.
+                    </p>
+                    <p class="text-gray-300 mb-4 text-lg">
+                        Nossa plataforma utiliza tecnologias modernas e modelos de linguagem (LLMs) para gerar automaticamente questões personalizadas, simulados completos e diagnósticos inteligentes. Tudo isso de forma adaptativa, rápida e acessível.
+                    </p>
+                    <p class="text-gray-300 mb-4 text-lg">
+                        Além de oferecer provas por matéria, simulados realistas e estatísticas de desempenho, o TutorIA ajuda o aluno a identificar seus pontos fortes e o que ainda precisa ser reforçado, promovendo uma jornada de estudo mais eficiente e focada.
+                    </p>
+                    <p class="text-gray-300 mb-6 text-lg">
+                        Nosso objetivo é tornar o estudo mais inteligente, interativo e eficaz, usando o poder da IA para democratizar o acesso à preparação de qualidade para exames nacionais.
+                    </p>
+                    <p class="text-[#ff9100] text-xl font-semibold">
+                        Para representar esse espírito de aprendizado ágil e estratégico, o TutorIA conta com um mascote muito especial: uma raposa de capelo — símbolo da inteligência, curiosidade e perseverança que queremos inspirar em cada estudante.
+                    </p>
+                </div>
+            </section>
+        `;
+    }
+
     // --- STATISTICS PAGE FUNCTIONS ---
     function renderStatisticsPage() {
         appContent.innerHTML = `

@@ -26,15 +26,20 @@ const createPrompt = (count, subject) => `
   As questões devem ser rigorosas, mas compreensíveis, e testar o conhecimento do estudante de forma eficaz.
   A matéria das questões é: ${subject}.
     
-  Sua resposta DEVE ser um array JSON válido de objetos. Cada objeto DEVE ter exatamente estas propriedades:
-  - enunciado: O texto completo da questão
-  - alternativas: Um array de exatamente 5 strings, cada uma começando com sua respectiva letra (Ex: "A) ...", "B) ...")
-  - alternativaCorreta: A letra da alternativa correta ("A", "B", "C", "D" ou "E")
-  - materia: A matéria "${subject}"
-  - assunto: O tópico específico da matéria
-  - nivel: O nível de dificuldade ("fácil", "médio" ou "difícil")
+  Sua resposta DEVE ser um array JSON válido de objetos, e NADA MAIS, não inclua texto de auxilio, APENAS o array JSON valido.
+  NÃO inclua markdown (como \`\`\`json) ou qualquer texto antes ou depois do array.
+  
+  Cada objeto no array DEVE ter esta estrutura exata:
+  {
+    "enunciado": "O texto da questão...",
+    "alternativas": ["A) ...", "B) ...", "C) ...", "D) ...", "E) ..."],
+    "alternativaCorreta": "A",
+    "materia": "${subject}",
+    "assunto": "Tópico específico da questão",
+    "nivel": "fácil" 
+  }
 
-  IMPORTANTE: É CRÍTICO que você retorne EXATAMENTE ${count} questões no array JSON. A resposta deve conter apenas o array, sem nenhum outro texto.`;
+  É CRÍTICO que você retorne EXATAMENTE ${count} questões no array JSON. A resposta deve começar com '[' e terminar com ']'.`;
 
 const parseLLMResponse = (rawText) => {
     try {
@@ -75,7 +80,13 @@ exports.generateQuestions = functions.https.onCall(async (data, context) => {
     }
 
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-2.0-flash",
+            generationConfig: {
+                maxOutputTokens: 8192, // Aumenta o limite de tokens de saída
+            }
+        });
+        
         const prompt = createPrompt(count, subject);
 
         const result = await model.generateContent(prompt);
@@ -120,7 +131,7 @@ exports.generateSimulado = functions.https.onCall(async (data, context) => {
     let finalExamName = area;
     let isNivelamento = false;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     switch (area) {
         case 'Conhecimentos Gerais':
@@ -220,7 +231,7 @@ exports.generateExplanation = functions.https.onCall(async (data, context) => {
     `;
 
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
         const result = await model.generateContent(prompt);
         return { explanation: result.response.text() };
     } catch (error) {
@@ -253,7 +264,7 @@ exports.generateStudyPlan = functions.https.onCall(async (data, context) => {
     `;
 
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
         const result = await model.generateContent(prompt);
         return { plan: result.response.text() };
     } catch (error) {
