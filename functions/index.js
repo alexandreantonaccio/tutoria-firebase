@@ -83,7 +83,8 @@ exports.generateQuestions = functions.https.onCall(async (data, context) => {
         const model = genAI.getGenerativeModel({ 
             model: "gemini-2.0-flash",
             generationConfig: {
-                maxOutputTokens: 8192, // Aumenta o limite de tokens de saída
+                "maxOutputTokens": 8192,
+                "temperature": 0.2,
             }
         });
         
