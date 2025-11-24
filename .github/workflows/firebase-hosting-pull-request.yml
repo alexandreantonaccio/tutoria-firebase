@@ -17,5 +17,5 @@ jobs:
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TUTORIA_FIREBASE }}
-          projectId: tutoria-firebase
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TUTORIA_AD3CD }}
+          projectId: tutoria-ad3cd
