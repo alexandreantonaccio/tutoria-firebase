@@ -1,28 +1,26 @@
-// Importações da Geração 2 (v2)
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { setGlobalOptions } = require("firebase-functions/v2/options");
 const logger = require("firebase-functions/logger");
-
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const admin = require('firebase-admin');
-
-// Inicializar Firebase Admin
-admin.initializeApp();
-const db = admin.firestore();
+const { defineSecret } = require("firebase-functions/params");
 const { FieldValue } = require('firebase-admin/firestore');
 
-// Configurações Globais para as funções v2
-// Define a região padrão e o limite máximo de instâncias para evitar custos excessivos
+admin.initializeApp();
+const db = admin.firestore();
+
+// Configurações globais
 setGlobalOptions({ region: "us-central1", maxInstances: 10 });
 
-// **INSTRUÇÃO IMPORTANTE PARA DEPLOY**
-// Para produção, considere usar o Secret Manager do Cloud Functions v2:
-// const { defineSecret } = require('firebase-functions/params');
-// const apiKey = defineSecret('GEMINI_API_KEY');
-// E adicionar { secrets: [apiKey] } nas opções da função.
+// 1. Definição do Segredo
+const apiKey = defineSecret("API_KEY");
 
-const geminiApiKey = "AIzaSyD8o2MTltzkSFjwBbNDF8vD3o8HrzG9ySM"; 
-const genAI = new GoogleGenerativeAI(geminiApiKey);
+// --- FUNÇÕES AUXILIARES ---
+
+// Helper para instanciar o cliente dentro das funções
+const getGenAI = () => {
+    return new GoogleGenerativeAI(apiKey.value());
+};
 
 const createPrompt = (count, subject) => `
   Você é um especialista em criação de questões de múltipla escolha para estudantes de vestibular. 
@@ -33,8 +31,7 @@ const createPrompt = (count, subject) => `
   As questões devem ser rigorosas, mas compreensíveis, e testar o conhecimento do estudante de forma eficaz.
   A matéria das questões é: ${subject}.
     
-  Sua resposta DEVE ser um array JSON válido de objetos, e NADA MAIS, não inclua texto de auxilio, APENAS o array JSON valido.
-  NÃO inclua markdown (como \`\`\`json) ou qualquer texto antes ou depois do array.
+  Sua resposta DEVE ser um array JSON válido de objetos.
   
   Cada objeto no array DEVE ter esta estrutura exata:
   {
@@ -46,38 +43,42 @@ const createPrompt = (count, subject) => `
     "nivel": "fácil" 
   }
 
-  É CRÍTICO que você retorne EXATAMENTE ${count} questões no array JSON. A resposta deve começar com '[' e terminar com ']'.`;
+  É CRÍTICO que você retorne EXATAMENTE ${count} questões no array JSON.`;
 
 const parseLLMResponse = (rawText) => {
     try {
-        const startIndex = rawText.indexOf('[');
-        const endIndex = rawText.lastIndexOf(']');
+        // Tenta fazer o parse direto (graças ao JSON mode do Gemini)
+        return JSON.parse(rawText);
+    } catch (e) {
+        // Fallback: Se a IA ainda colocar markdown (```json ... ```), limpamos manualmente
+        try {
+            const startIndex = rawText.indexOf('[');
+            const endIndex = rawText.lastIndexOf(']');
 
-        if (startIndex === -1 || endIndex === -1) {
-            throw new Error("JSON array not found in the response.");
-        }
+            if (startIndex === -1 || endIndex === -1) {
+                throw new Error("JSON array not found in the response.");
+            }
 
-        const jsonString = rawText.substring(startIndex, endIndex + 1);
-        const questions = JSON.parse(jsonString);
-        
-        if (!Array.isArray(questions)) {
-            throw new Error("AI response is not a valid JSON array.");
+            const jsonString = rawText.substring(startIndex, endIndex + 1);
+            const questions = JSON.parse(jsonString);
+            
+            if (!Array.isArray(questions)) {
+                throw new Error("AI response is not a valid JSON array.");
+            }
+            return questions;
+        } catch (parseError) {
+            logger.error("Error parsing JSON:", parseError);
+            logger.error("Received text for parsing:", rawText);
+            throw new HttpsError("internal", "Invalid response format from the AI.");
         }
-        return questions;
-    } catch (parseError) {
-        logger.error("Error parsing JSON:", parseError);
-        logger.error("Received text for parsing:", rawText);
-        throw new HttpsError("internal", "Invalid response format from the AI.");
     }
 };
 
-// --- FUNÇÕES MIGRADAS PARA V2 ---
+// --- CLOUD FUNCTIONS ---
 
-// Na v2, usamos `onCall` diretamente. O argumento muda de `(data, context)` para `(request)`.
-// `request.data` contém os dados enviados pelo cliente.
-// `request.auth` contém as informações de autenticação.
-
-exports.generateQuestions = onCall(async (request) => {
+exports.generateQuestions = onCall(
+    { secrets: [apiKey] }, // CORREÇÃO: Segredo declarado aqui
+    async (request) => {
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'The function must be called by an authenticated user.');
     }
@@ -90,16 +91,16 @@ exports.generateQuestions = onCall(async (request) => {
     }
 
     try {
+        const genAI = getGenAI(); // CORREÇÃO: Inicializado dentro da função
         const model = genAI.getGenerativeModel({ 
             model: "gemini-2.0-flash",
             generationConfig: {
-                "maxOutputTokens": 8192,
-                "temperature": 0.2,
+                maxOutputTokens: 8192,
+                temperature: 0.2,
+                responseMimeType: "application/json" // CORREÇÃO: Força resposta JSON
             }
         });
         
-        constHV_prompt = createPrompt(count, subject);
-
         const result = await model.generateContent(createPrompt(count, subject));
         const questions = parseLLMResponse(result.response.text());
         
@@ -127,7 +128,9 @@ exports.generateQuestions = onCall(async (request) => {
     }
 });
 
-exports.generateSimulado = onCall({ timeoutSeconds: 300 }, async (request) => { // Aumentado timeout para simulados
+exports.generateSimulado = onCall(
+    { secrets: [apiKey], timeoutSeconds: 300 }, // CORREÇÃO: Segredo declarado aqui
+    async (request) => { 
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'The function must be called by an authenticated user.');
     }
@@ -138,11 +141,16 @@ exports.generateSimulado = onCall({ timeoutSeconds: 300 }, async (request) => { 
         throw new HttpsError('invalid-argument', 'The "area" parameter is required.');
     }
 
+    const genAI = getGenAI(); // CORREÇÃO: Inicializado dentro da função
+    // Usamos JSON mode para garantir integridade ao juntar várias respostas
+    const model = genAI.getGenerativeModel({ 
+        model: "gemini-2.0-flash",
+        generationConfig: { responseMimeType: "application/json" } 
+    });
+
     let generationPromises;
     let finalExamName = area;
     let isNivelamento = false;
-
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     switch (area) {
         case 'Conhecimentos Gerais':
@@ -184,7 +192,10 @@ exports.generateSimulado = onCall({ timeoutSeconds: 300 }, async (request) => { 
 
         let allQuestions = [];
         results.forEach(result => {
-            allQuestions.push(...parseLLMResponse(result.response.text()));
+            const qs = parseLLMResponse(result.response.text());
+            if (Array.isArray(qs)) {
+                allQuestions.push(...qs);
+            }
         });
         
         const expectedCount = isNivelamento ? 15 : 45;
@@ -214,7 +225,9 @@ exports.generateSimulado = onCall({ timeoutSeconds: 300 }, async (request) => { 
     }
 });
 
-exports.generateExplanation = onCall(async (request) => {
+exports.generateExplanation = onCall(
+    { secrets: [apiKey] }, // CORREÇÃO: Segredo declarado aqui
+    async (request) => {
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'The function must be called by an authenticated user.');
     }
@@ -242,6 +255,7 @@ exports.generateExplanation = onCall(async (request) => {
     `;
 
     try {
+        const genAI = getGenAI(); // CORREÇÃO
         const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
         const result = await model.generateContent(prompt);
         return { explanation: result.response.text() };
@@ -251,14 +265,22 @@ exports.generateExplanation = onCall(async (request) => {
     }
 });
 
-exports.generateStudyPlan = onCall(async (request) => {
+exports.generateStudyPlan = onCall(
+    { secrets: [apiKey] }, // CORREÇÃO: Segredo declarado aqui
+    async (request) => {
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'The function must be called by an authenticated user.');
     }
 
     const { incorrectQuestions } = request.data;
+    
+    // Validação básica
+    if (!incorrectQuestions || !Array.isArray(incorrectQuestions)) {
+        throw new HttpsError('invalid-argument', 'Invalid questions data.');
+    }
 
-    const topicSummary = incorrectQuestions.map(q => `- Matéria: ${q.materia}, Assunto: ${q.assunto}`).join('\n');
+    // Limitamos a quantidade de contexto para não estourar tokens e economizar
+    const topicSummary = incorrectQuestions.slice(0, 20).map(q => `- Matéria: ${q.materia}, Assunto: ${q.assunto}`).join('\n');
 
     const prompt = `
       Você é um orientador de estudos especialista em preparação para o ENEM. Um aluno errou as seguintes questões:
@@ -275,6 +297,7 @@ exports.generateStudyPlan = onCall(async (request) => {
     `;
 
     try {
+        const genAI = getGenAI(); // CORREÇÃO
         const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
         const result = await model.generateContent(prompt);
         return { plan: result.response.text() };
